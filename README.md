@@ -52,7 +52,7 @@
 	- fof = []
 	- fof << x where Sx|tim
 	- fof << x where Sx|y where y is any member of fof
-	- FOR0: Tim
+	- FOF0: Tim
 	- FOF1: All those who have played soc with Tim
 	- FOF2: Anyone who has played soc with those in FOF1 who are not themselves in FOF1 nor FOF0
 	- FOF3: Anyone who has played soc with those in FOF2 who are not themselves in FOF2 nor FOF1 nor FOF0
