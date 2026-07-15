@@ -1,9 +1,9 @@
 # braggart
 
-**Purpose
+## Purpose
 - Keep track of tabletop game statistics among your friends.
 
-**Features
+## Features
 - Profile
 	- Login/persistent account
 	- Change display name
