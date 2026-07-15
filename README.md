@@ -60,182 +60,194 @@
 - We want the intersection of Tim's fof_soc and James' fof_soc
 - better_than rankings or this_much_better_than rankings?
 
+This diagram reflects the **as-built schema** in
+`supabase/migrations/0001_initial_schema.sql`. Notes:
+
+- Credentials (password, auth) live in Supabase's `auth.users`; `players` is the
+  public profile, keyed 1:1 to the auth user.
+- Images live in Supabase Storage; the single `assets` table (full image +
+  optional `thumbnail_path`) replaces the old Thumbnails/Assets split.
+- Variants are modeled as a game with a `parent_game_id` self-reference rather
+  than a separate table.
+- Lifecycle/soft-delete uses typed enums (`entity_status`, `match_status`,
+  `friendship_status`, `membership_status`) instead of free-text `state`.
+
 ```mermaid
 classDiagram
-	class Players{
-		+Uuid id
-		+Uuid thumbnail_id
-		+String username
-		+String password
-		+String display_name
-		+String color_1
-		+String color_2
-		+String state
-		+String email
-		+favoriteGame() : games
+	class players{
+		+uuid id  «auth.users»
+		+citext username
+		+text display_name
+		+citext email
+		+uuid avatar_asset_id
+		+text color_1
+		+text color_2
+		+entity_status status
 	}
-	class Games{
-		+Uuid id
-		+Uuid owner_id
-		+String name
-		+Boolean most_points_wins
-		+Boolean team_based
-		+Boolean cooperative
-		+Int points_to_win
-		+Bigint weight
-		+Bigint difficulty
+	class assets{
+		+uuid id
+		+uuid owner_id
+		+asset_kind kind
+		+text storage_path
+		+text thumbnail_path
 	}
-	class Variants{
-		+ Uuid id
-		+ Uuid base_game_id
+	class games{
+		+uuid id
+		+uuid owner_id  «null = library»
+		+uuid parent_game_id  «variant»
+		+text name
+		+boolean most_points_wins
+		+boolean team_based
+		+boolean cooperative
+		+int points_to_win
+		+numeric weight
+		+numeric difficulty
+		+uuid image_asset_id
+		+int bgg_id
+		+entity_status status
 	}
-	class Matches{
-		+Uuid id
-		+Uuid game_id
-		+Uuid owner_id
-		+Bigint weight
-		+String state
-		+Datetime date_played
-		+winners() : players
+	class groups{
+		+uuid id
+		+uuid owner_id
+		+text name
+		+uuid image_asset_id
+		+text color_1
+		+text color_2
+		+entity_status status
 	}
-	class Notes{
-		+Uuid id
-		+Uuid match_id
-		+Uuid game_id
-		+Uuid owner_id
-		+String message
-		+String state
+	class player_groups{
+		+uuid id
+		+uuid player_id
+		+uuid group_id
+		+membership_role role
+		+membership_status status
 	}
-	class Mentions{
-		+Uuid id
-		+Uuid note_id
-		+Uuid player_id
+	class teams{
+		+uuid id
+		+text name
+		+uuid image_asset_id
+		+text color_1
+		+text color_2
+		+entity_status status
 	}
-	class Friendships{
-		+Uuid id
-		+Uuid friender_id
-		+Uuid friended_id
-		+String state
+	class player_teams{
+		+uuid id
+		+uuid player_id
+		+uuid team_id
 	}
-	class PlayerMatches{
-		+Uuid id
-		+Uuid player_id
-		+Uuid match_id
-		+Int score
-		+Int place_in_order
+	class tournaments{
+		+uuid id
+		+uuid owner_id
+		+uuid group_id
+		+text name
+		+entity_status status
 	}
-	class Teams{
-		+Uuid id
-		+Uuid thumbnail_id
-		+String name
-		+String color_1
-		+Sting color_2
+	class matches{
+		+uuid id
+		+uuid game_id
+		+uuid owner_id
+		+uuid group_id
+		+uuid tournament_id
+		+numeric weight
+		+match_status status
+		+timestamptz date_played
 	}
-	class PlayerTeams{
-		+Uuid id
-		+Uuid player_id
-		+Uuid team_id
+	class player_matches{
+		+uuid id
+		+uuid match_id
+		+uuid player_id
+		+uuid team_id
+		+int score
+		+int handicap
+		+int place_in_order
+		+int finishing_place
+		+boolean is_winner
 	}
-	class TeamMatches{
-		+Uuid id
-		+Uuid match_id
-		+Uuid team_id
+	class team_matches{
+		+uuid id
+		+uuid match_id
+		+uuid team_id
+		+int score
+		+boolean is_winner
 	}
-	class Thumbnails{
-		+Uuid id
-		+Uuid asset_id
+	class match_assets{
+		+uuid id
+		+uuid match_id
+		+uuid asset_id
 	}
-	class Assets{
-		+Uuid id
-		+Uuid player_id
-		+Uuid thumbnail_id
-		+String type
+	class friendships{
+		+uuid id
+		+uuid friender_id
+		+uuid friended_id
+		+friendship_status status
 	}
-	class MatchAssets{
-		+Uuid id
-		+Uuid asset_id
-		+Uuid match_id
+	class notes{
+		+uuid id
+		+uuid owner_id
+		+uuid match_id
+		+uuid game_id
+		+text message
+		+entity_status status
 	}
-	class Tournaments{
-		+Uuid id
-		+Uuid player_id
-		+String name
-		+winners() : players
+	class mentions{
+		+uuid id
+		+uuid note_id
+		+uuid player_id
 	}
-	class Trophies{
-		+Uuid id
-		+Uuid thumbnail_id
-		+String name
-		+String type
+	class trophies{
+		+uuid id
+		+text name
+		+trophy_kind kind
+		+jsonb criteria
+		+uuid image_asset_id
 	}
-	class FirstGameTrophy{
-		+Uuid id
-		+awarded(player) : boolean
+	class player_trophies{
+		+uuid id
+		+uuid player_id
+		+uuid trophy_id
+		+int number_awarded
 	}
-	class PlayerTrophies{
-		+Uuid id
-		+Uuid player_id
-		+Uuid trophy_id
-		+Int number_awarded
+	class game_trophies{
+		+uuid id
+		+uuid game_id
+		+uuid trophy_id
 	}
-	class Groups{
-		+Uuid id
-		+Uuid thumbnail_id
-		+Uuid player_id
-		+String color_1
-		+String color_2
-		+String name
-		+String state
-		+favoriteGame()
-	}
-	class PlayerGroups{
-		+Uuid id
-		+Uuid player_id
-		+Uuid group_id
-		+Uui thumbnail_id
-		+String color_1
-		+String color_2
-		+String name
-		+String state
-	}
-	class GameTrophies{
-		+Uuid id
-		+Uuid game_id
-		+Uuid trophy_id
-	}
-	
-	Players "1" <--> "*" PlayerMatches
-	Players "1" <--> "*" Notes : owner
-	Players "1" <--> "*" PlayerTeams
-	Players "1" <--> "*" Friendships
-	Players "1" <--> "*" Friendships
-	Players "1" <--> "1" Thumbnails
-	PlayerMatches "*" <--> "1" Matches
-	PlayerTeams "*" <--> "1" Teams
-	Teams "1" <--> "*" TeamMatches
-	TeamMatches "*" <--> "1" Matches
-	Games "1" <--> "*" Matches
-	Games "*" <--> "1" Players : owner
-	Games "1" <--> "1" Thumbnails
-	Matches "1" <--> "*" Notes
-	Matches "1" <--> "*" MatchAssets
-	Notes "1" <--> "*" Mentions
-	Mentions "*" <--> "1" Players : mentioned
-	Thumbnails "1" <--> "1" Assets
-	Assets "1" <--> "*" MatchAssets
-	Notes "*" <--> "1" Games
-	Games "1" <--|> "*" Variants
-	Players "1" <--> "*" Assets : owner
-	Tournaments "1" <--> "*" Matches
-	Tournaments "*" <--> "1" Players : owner
-	Players "1" <--> "*" PlayerTrophies
-	Trophies "1" <--> "*" PlayerTrophies
-	Players "1" <--> "*" Groups : owner
-	Players "1" <--> "*" PlayerGroups
-	Groups "1" <--> "*" PlayerGroups
-	Trophies --|> FirstGameTrophy
-	Trophies "1" <--> "1" Thumbnails
-	Games "1" <--> "*" GameTrophies
-	Trophies "1" <--> "*" GameTrophies
-	Players "1" <--> "*" Matches : owner
+
+	players "1" --> "*" assets : owner
+	players "1" --> "1" assets : avatar
+	players "1" --> "*" games : owner
+	games "1" --> "*" games : variants (parent_game_id)
+	games "1" --> "1" assets : image
+	players "1" --> "*" groups : owner
+	groups "1" --> "1" assets : image
+	players "1" --> "*" player_groups
+	groups "1" --> "*" player_groups
+	teams "1" --> "1" assets : image
+	players "1" --> "*" player_teams
+	teams "1" --> "*" player_teams
+	players "1" --> "*" tournaments : owner
+	groups "1" --> "*" tournaments
+	games "1" --> "*" matches
+	players "1" --> "*" matches : owner
+	groups "1" --> "*" matches
+	tournaments "1" --> "*" matches
+	matches "1" --> "*" player_matches
+	players "1" --> "*" player_matches
+	teams "1" --> "*" player_matches
+	matches "1" --> "*" team_matches
+	teams "1" --> "*" team_matches
+	matches "1" --> "*" match_assets
+	assets "1" --> "*" match_assets
+	players "1" --> "*" friendships : friender
+	players "1" --> "*" friendships : friended
+	players "1" --> "*" notes : owner
+	matches "1" --> "*" notes
+	games "1" --> "*" notes
+	notes "1" --> "*" mentions
+	players "1" --> "*" mentions : mentioned
+	trophies "1" --> "1" assets : image
+	players "1" --> "*" player_trophies
+	trophies "1" --> "*" player_trophies
+	games "1" --> "*" game_trophies
+	trophies "1" --> "*" game_trophies
 ```
