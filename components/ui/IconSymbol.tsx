@@ -22,6 +22,9 @@ const MAPPING = {
   'line.3.horizontal': 'menu',
   'chevron.down': 'keyboard-arrow-down',
   'magnifyingglass': 'search',
+  'plus': 'add',
+  'xmark': 'close',
+  'plus.circle.fill': 'add-circle',
 } as IconMapping;
 
 /**

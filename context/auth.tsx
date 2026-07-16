@@ -24,9 +24,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    // 1) hydrate from any persisted session
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    let mounted = true;
+
+    // Guard against a stale session whose profile no longer exists (e.g. the
+    // account was deleted, or the local DB was reset out from under the token).
+    // Without a players row, owner-scoped writes fail with an FK error, so we
+    // sign such sessions out and fall back to the sign-in screen.
+    async function ensureProfile(s: Session | null): Promise<Session | null> {
+      if (!s) return null;
+      const { data, error } = await supabase
+        .from('players')
+        .select('id')
+        .eq('id', s.user.id)
+        .maybeSingle();
+      // Fail open on transient errors; only sign out when the profile is truly absent.
+      if (!error && !data) {
+        await supabase.auth.signOut();
+        return null;
+      }
+      return s;
+    }
+
+    // 1) hydrate from any persisted session, validating the profile exists
+    supabase.auth.getSession().then(async ({ data }) => {
+      const validated = await ensureProfile(data.session);
+      if (!mounted) return;
+      setSession(validated);
       setInitializing(false);
     });
 
@@ -35,7 +58,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setSession(nextSession);
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const value: AuthContextValue = {
