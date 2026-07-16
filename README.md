@@ -3,6 +3,12 @@
 ## Purpose
 - Keep track of tabletop game statistics among your friends.
 
+## Preview
+
+Sign-in screen (light mode):
+
+![Braggart sign-in screen](assets/images/signin-light.png)
+
 ## Features
 - Profile
 	- Login/persistent account
