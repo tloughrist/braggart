@@ -52,7 +52,7 @@ export default function SignInScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}>
         <View style={styles.inner}>
-          <ThemedText type="title" style={styles.brand}>
+          <ThemedText type="title" style={[styles.brand, { color: theme.primary }]}>
             Braggart
           </ThemedText>
           <ThemedText style={styles.tagline}>
@@ -124,9 +124,18 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  flex: { flex: 1 },
-  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 12 },
-  brand: { textAlign: 'center' },
+  flex: { flex: 1, width: '100%' },
+  inner: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  brand: { textAlign: 'center', fontSize: 48, lineHeight: 58 },
   tagline: { textAlign: 'center', marginBottom: 16, opacity: 0.7 },
   input: {
     borderWidth: 1,

@@ -45,7 +45,9 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.content}>
-          <ThemedText type="title">Braggart</ThemedText>
+          <ThemedText type="title" style={{ color: theme.primary }}>
+            Braggart
+          </ThemedText>
           {loading ? (
             <ThemedText style={styles.muted}>Loading your profile…</ThemedText>
           ) : (
