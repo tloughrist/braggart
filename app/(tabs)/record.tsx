@@ -8,6 +8,7 @@ import { PlayerPicker, type PlayerOption } from '@/components/PlayerPicker';
 import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
+import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { supabase } from '@/lib/supabase';
 
@@ -16,6 +17,7 @@ type Entry = { player: PlayerOption; score: string };
 export default function RecordScreen() {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
+  const { activeGroupId, activeGroup, loading: groupsLoading } = useGroup();
 
   const [games, setGames] = useState<GameOption[]>([]);
   const [players, setPlayers] = useState<PlayerOption[]>([]);
@@ -27,26 +29,42 @@ export default function RecordScreen() {
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   useEffect(() => {
+    if (groupsLoading) return;
+    if (!activeGroupId) {
+      setLoading(false);
+      return;
+    }
     let active = true;
+    setLoading(true);
+    // Players are scoped to the active group's members.
     (async () => {
-      const [g, p] = await Promise.all([
+      const [g, m] = await Promise.all([
         supabase.from('games').select('id, name').order('name'),
-        supabase.from('players').select('id, display_name, username').order('display_name'),
+        supabase
+          .from('player_groups')
+          .select('player:players(id, display_name, username)')
+          .eq('group_id', activeGroupId)
+          .eq('status', 'active'),
       ]);
       if (!active) return;
       setGames((g.data ?? []).map((x) => ({ id: x.id as string, name: x.name as string })));
       setPlayers(
-        (p.data ?? []).map((x) => ({
-          id: x.id as string,
-          name: (x.display_name as string) || (x.username as string) || 'Player',
-        })),
+        (m.data ?? [])
+          .map((r: any) => (Array.isArray(r.player) ? r.player[0] : r.player))
+          .filter(Boolean)
+          .map((x: any) => ({
+            id: x.id as string,
+            name: (x.display_name as string) || (x.username as string) || 'Player',
+          })),
       );
+      // reset the in-progress form when the group changes
+      setEntries([]);
       setLoading(false);
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeGroupId, groupsLoading]);
 
   const availablePlayers = useMemo(() => {
     const taken = new Set(entries.map((e) => e.player.id));
@@ -75,6 +93,7 @@ export default function RecordScreen() {
     setMessage(null);
     const { error } = await supabase.rpc('create_match', {
       p_game_id: gameId,
+      p_group_id: activeGroupId,
       p_date: new Date().toISOString(),
       p_players: entries.map((e) => ({ player_id: e.player.id, score: Number(e.score) })),
     });
@@ -99,6 +118,10 @@ export default function RecordScreen() {
 
           {loading ? (
             <ActivityIndicator color={theme.primary} style={styles.loader} />
+          ) : !activeGroupId ? (
+            <ThemedText style={styles.hint}>
+              Join or create a group in the Group tab before recording a match.
+            </ThemedText>
           ) : (
             <>
               <ThemedText style={styles.label}>Game</ThemedText>

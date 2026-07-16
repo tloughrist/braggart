@@ -25,6 +25,8 @@ const MAPPING = {
   'plus': 'add',
   'xmark': 'close',
   'plus.circle.fill': 'add-circle',
+  'person.2.fill': 'groups',
+  'checkmark': 'check',
 } as IconMapping;
 
 /**

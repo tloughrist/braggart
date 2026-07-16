@@ -7,6 +7,7 @@ import { GameSelect, type GameOption } from '@/components/GameSelect';
 import { StatTable, type StatColumn, type StatRow } from '@/components/StatTable';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { supabase } from '@/lib/supabase';
 
@@ -37,6 +38,7 @@ const fmt = (v: number | string) => {
 export default function StatsScreen() {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
+  const { activeGroupId, loading: groupsLoading } = useGroup();
 
   const [allRows, setAllRows] = useState<StatsRow[]>([]);
   const [games, setGames] = useState<GameOption[]>([]);
@@ -45,11 +47,21 @@ export default function StatsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (groupsLoading) return;
+    if (!activeGroupId) {
+      setAllRows([]);
+      setGames([]);
+      setSelectedGameId(null);
+      setLoading(false);
+      return;
+    }
     let active = true;
+    setLoading(true);
     (async () => {
       const { data, error } = await supabase
         .from('game_player_stats')
         .select('game_id, game_name, display_name, matches, wins, win_rate, avg_point_deviation')
+        .eq('group_id', activeGroupId)
         .order('game_name', { ascending: true })
         .order('wins', { ascending: false })
         .order('avg_point_deviation', { ascending: true })
@@ -78,7 +90,7 @@ export default function StatsScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activeGroupId, groupsLoading]);
 
   const tableRows: StatRow[] = useMemo(
     () =>
@@ -110,11 +122,19 @@ export default function StatsScreen() {
             <ThemedText style={styles.message}>Couldn’t load stats: {error}</ThemedText>
           </Card>
         </ScrollView>
+      ) : !activeGroupId ? (
+        <ScrollView contentContainerStyle={styles.content}>
+          <Card>
+            <ThemedText style={styles.message}>
+              Join or create a group in the Group tab to see stats.
+            </ThemedText>
+          </Card>
+        </ScrollView>
       ) : games.length === 0 ? (
         <ScrollView contentContainerStyle={styles.content}>
           <Card>
             <ThemedText style={styles.message}>
-              No stats yet. Record a completed match to see the leaderboard.
+              No stats yet for this group. Record a completed match to see the leaderboard.
             </ThemedText>
           </Card>
         </ScrollView>

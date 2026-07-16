@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { GroupSwitcher } from '@/components/GroupSwitcher';
 import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
@@ -27,33 +28,40 @@ export function AppHeader({ onMenuPress }: Props) {
         styles.header,
         { backgroundColor: theme.primary, paddingTop: insets.top + 8, borderBottomColor: theme.border },
       ]}>
-      <Pressable
-        onPress={onMenuPress}
-        hitSlop={10}
-        style={styles.menuButton}
-        accessibilityRole="button"
-        accessibilityLabel="Open menu">
-        <IconSymbol name="line.3.horizontal" size={28} color={theme.headerText} />
-      </Pressable>
+      <View style={styles.topRow}>
+        <Pressable
+          onPress={onMenuPress}
+          hitSlop={10}
+          style={styles.menuButton}
+          accessibilityRole="button"
+          accessibilityLabel="Open menu">
+          <IconSymbol name="line.3.horizontal" size={28} color={theme.headerText} />
+        </Pressable>
 
-      <ThemedText style={[styles.brand, { color: theme.headerText, fontFamily: Fonts.brand }]}>
-        Braggart
-      </ThemedText>
+        <ThemedText style={[styles.brand, { color: theme.headerText, fontFamily: Fonts.brand }]}>
+          Braggart
+        </ThemedText>
 
-      {/* Spacer balances the menu button so the wordmark stays centered. */}
-      <View style={styles.menuButton} />
+        {/* Spacer balances the menu button so the wordmark stays centered. */}
+        <View style={styles.menuButton} />
+      </View>
+
+      <GroupSwitcher />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 8,
+  },
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   menuButton: {
     width: 44,
