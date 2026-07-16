@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { Card } from '@/components/Card';
+import { GameSelect, type GameOption } from '@/components/GameSelect';
 import { StatTable, type StatColumn, type StatRow } from '@/components/StatTable';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
@@ -37,8 +38,9 @@ export default function StatsScreen() {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
 
-  const [gameName, setGameName] = useState<string | null>(null);
-  const [rows, setRows] = useState<StatRow[]>([]);
+  const [allRows, setAllRows] = useState<StatsRow[]>([]);
+  const [games, setGames] = useState<GameOption[]>([]);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +50,7 @@ export default function StatsScreen() {
       const { data, error } = await supabase
         .from('game_player_stats')
         .select('game_id, game_name, display_name, matches, wins, win_rate, avg_point_deviation')
+        .order('game_name', { ascending: true })
         .order('wins', { ascending: false })
         .order('avg_point_deviation', { ascending: true })
         .returns<StatsRow[]>();
@@ -57,19 +60,19 @@ export default function StatsScreen() {
         setLoading(false);
         return;
       }
-      // Show the first game present; a game picker comes later.
-      const firstGameId = data?.[0]?.game_id;
-      const forGame = (data ?? []).filter((r) => r.game_id === firstGameId);
-      setGameName(forGame[0]?.game_name ?? null);
-      setRows(
-        forGame.map((r) => ({
-          player: r.display_name ?? '—',
-          matches: r.matches,
-          wins: r.wins,
-          winRate: fmt(r.win_rate),
-          avgDev: fmt(r.avg_point_deviation),
-        })),
-      );
+      setAllRows(data ?? []);
+
+      // Distinct games, in the order they appear (already sorted by name).
+      const seen = new Set<string>();
+      const list: GameOption[] = [];
+      for (const r of data ?? []) {
+        if (!seen.has(r.game_id)) {
+          seen.add(r.game_id);
+          list.push({ id: r.game_id, name: r.game_name });
+        }
+      }
+      setGames(list);
+      setSelectedGameId(list[0]?.id ?? null);
       setLoading(false);
     })();
     return () => {
@@ -77,39 +80,66 @@ export default function StatsScreen() {
     };
   }, []);
 
+  const tableRows: StatRow[] = useMemo(
+    () =>
+      allRows
+        .filter((r) => r.game_id === selectedGameId)
+        .map((r) => ({
+          player: r.display_name ?? '—',
+          matches: r.matches,
+          wins: r.wins,
+          winRate: fmt(r.win_rate),
+          avgDev: fmt(r.avg_point_deviation),
+        })),
+    [allRows, selectedGameId],
+  );
+
+  const gameName = games.find((g) => g.id === selectedGameId)?.name ?? null;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.primary }]}>
       <AppHeader />
-      <ScrollView contentContainerStyle={styles.content}>
-        {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={theme.headerText} />
-          </View>
-        ) : error ? (
+
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator color={theme.headerText} />
+        </View>
+      ) : error ? (
+        <ScrollView contentContainerStyle={styles.content}>
           <Card>
             <ThemedText style={styles.message}>Couldn’t load stats: {error}</ThemedText>
           </Card>
-        ) : rows.length === 0 ? (
+        </ScrollView>
+      ) : games.length === 0 ? (
+        <ScrollView contentContainerStyle={styles.content}>
           <Card>
             <ThemedText style={styles.message}>
               No stats yet. Record a completed match to see the leaderboard.
             </ThemedText>
           </Card>
-        ) : (
-          <Card>
-            <ThemedText type="subtitle" style={styles.cardTitle}>
-              {gameName}
-            </ThemedText>
-            <StatTable columns={COLUMNS} rows={rows} />
-          </Card>
-        )}
-      </ScrollView>
+        </ScrollView>
+      ) : (
+        <>
+          <View style={styles.controls}>
+            <GameSelect games={games} selectedId={selectedGameId} onSelect={setSelectedGameId} />
+          </View>
+          <ScrollView contentContainerStyle={styles.content}>
+            <Card>
+              <ThemedText type="subtitle" style={styles.cardTitle}>
+                {gameName}
+              </ThemedText>
+              <StatTable columns={COLUMNS} rows={tableRows} />
+            </Card>
+          </ScrollView>
+        </>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  controls: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4 },
   content: { padding: 16 },
   centered: { paddingTop: 48, alignItems: 'center' },
   cardTitle: { textAlign: 'center', marginBottom: 14 },

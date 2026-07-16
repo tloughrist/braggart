@@ -20,6 +20,8 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'chart.bar.fill': 'leaderboard',
   'line.3.horizontal': 'menu',
+  'chevron.down': 'keyboard-arrow-down',
+  'magnifyingglass': 'search',
 } as IconMapping;
 
 /**
