@@ -136,3 +136,8 @@ insert into public.player_matches (match_id, player_id, score, is_winner) values
 -- ── Assign all seeded matches to the group ──────────────────────────────────
 update public.matches set group_id = 'd0000000-0000-0000-0000-0000000000d1'
 where owner_id = '11111111-1111-1111-1111-111111111111';
+
+-- ── A team-based game (no matches yet; record one from the app) ──────────────
+insert into public.games (id, owner_id, name, most_points_wins, team_based)
+values ('a0000000-0000-0000-0000-0000000000a3',
+        '11111111-1111-1111-1111-111111111111', 'Codenames', true, true);
