@@ -9,6 +9,7 @@ import { PlayerPicker, type PlayerOption } from '@/components/PlayerPicker';
 import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
+import { MAX_CONTENT_WIDTH } from '@/constants/layout';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { supabase } from '@/lib/supabase';
@@ -343,7 +344,7 @@ export default function RecordScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16 },
+  content: { padding: 16, width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
   title: { textAlign: 'center', marginBottom: 8 },
   loader: { marginVertical: 24 },
   label: { marginTop: 16, marginBottom: 6, fontWeight: '600' },

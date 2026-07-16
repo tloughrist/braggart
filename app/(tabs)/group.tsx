@@ -6,6 +6,7 @@ import { Card } from '@/components/Card';
 import { PlayerPicker, type PlayerOption } from '@/components/PlayerPicker';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { MAX_CONTENT_WIDTH } from '@/constants/layout';
 import { useAuth } from '@/context/auth';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -196,7 +197,7 @@ export default function GroupScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16 },
+  content: { padding: 16, width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
   title: { textAlign: 'center', marginBottom: 8 },
   label: { marginTop: 8, marginBottom: 6, fontWeight: '600' },
   loader: { marginVertical: 16 },

@@ -1,15 +1,18 @@
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export type StatColumn = {
   key: string;
   label: string;
-  /** Flex weight for this column's width. Default 1. */
+  /** Flex weight when the table fills the width (wide screens). Default 1. */
   flex?: number;
+  /** Fixed width used on compact (phone) screens where the table scrolls. */
+  width?: number;
   align?: 'left' | 'center' | 'right';
 };
 
@@ -21,25 +24,27 @@ type Props = {
 };
 
 /**
- * A striped, bordered leaderboard table (per the mockup): a header row over
- * alternating cream/gray body rows. Column widths are flex-based so it fills
- * the card on wide screens.
+ * Striped leaderboard table. On wide screens columns flex to fill the card; on
+ * phones they take fixed widths and the whole table scrolls horizontally so the
+ * cells never get crushed.
  */
 export function StatTable({ columns, rows }: Props) {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
+  const { isCompact } = useResponsive();
 
-  return (
-    <View style={[styles.table, { borderColor: theme.border }]}>
-      {/* header */}
-      <View style={[styles.row, styles.headerRow, { backgroundColor: theme.stripe, borderColor: theme.border }]}>
+  const lastKey = columns[columns.length - 1].key;
+
+  const table = (
+    <View style={[styles.table, { borderColor: theme.border }, !isCompact && styles.fill]}>
+      <View style={[styles.row, { backgroundColor: theme.stripe, borderColor: theme.border }]}>
         {columns.map((col) => (
           <Cell
             key={col.key}
-            flex={col.flex}
-            align={col.align ?? 'center'}
+            col={col}
+            compact={isCompact}
             borderColor={theme.border}
-            last={col.key === columns[columns.length - 1].key}>
+            last={col.key === lastKey}>
             <ThemedText style={[styles.headerText, { fontFamily: Fonts.brandSemiBold }]}>
               {col.label}
             </ThemedText>
@@ -47,7 +52,6 @@ export function StatTable({ columns, rows }: Props) {
         ))}
       </View>
 
-      {/* body */}
       {rows.map((row, i) => (
         <View
           key={i}
@@ -58,10 +62,10 @@ export function StatTable({ columns, rows }: Props) {
           {columns.map((col) => (
             <Cell
               key={col.key}
-              flex={col.flex}
-              align={col.align ?? 'center'}
+              col={col}
+              compact={isCompact}
               borderColor={theme.border}
-              last={col.key === columns[columns.length - 1].key}>
+              last={col.key === lastKey}>
               <ThemedText style={styles.cellText}>{String(row[col.key] ?? '')}</ThemedText>
             </Cell>
           ))}
@@ -69,28 +73,39 @@ export function StatTable({ columns, rows }: Props) {
       ))}
     </View>
   );
+
+  if (isCompact) {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.hscroll}>
+        {table}
+      </ScrollView>
+    );
+  }
+  return table;
 }
 
 function Cell({
-  children,
-  flex = 1,
-  align,
+  col,
+  compact,
   borderColor,
   last,
+  children,
 }: {
-  children: React.ReactNode;
-  flex?: number;
-  align: 'left' | 'center' | 'right';
+  col: StatColumn;
+  compact: boolean;
   borderColor: string;
   last: boolean;
+  children: React.ReactNode;
 }) {
-  const alignItems =
-    align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
+  const align = col.align ?? 'center';
+  const alignItems = align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
+  const sizeStyle = compact ? { width: col.width ?? 90 } : { flex: col.flex ?? 1 };
   return (
     <View
       style={[
         styles.cell,
-        { flex, alignItems, borderColor, borderRightWidth: last ? 0 : StyleSheet.hairlineWidth },
+        sizeStyle,
+        { alignItems, borderColor, borderRightWidth: last ? 0 : StyleSheet.hairlineWidth },
       ]}>
       {children}
     </View>
@@ -98,16 +113,15 @@ function Cell({
 }
 
 const styles = StyleSheet.create({
+  hscroll: { minWidth: '100%' },
   table: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 10,
     overflow: 'hidden',
   },
+  fill: { width: '100%' },
   row: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerRow: {
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   cell: {

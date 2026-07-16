@@ -7,16 +7,17 @@ import { GameSelect, type GameOption } from '@/components/GameSelect';
 import { StatTable, type StatColumn, type StatRow } from '@/components/StatTable';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
+import { MAX_CONTENT_WIDTH } from '@/constants/layout';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { supabase } from '@/lib/supabase';
 
 const COLUMNS: StatColumn[] = [
-  { key: 'player', label: 'Player', flex: 2.2, align: 'left' },
-  { key: 'matches', label: '# Matches' },
-  { key: 'wins', label: '# Wins' },
-  { key: 'winRate', label: 'Win Rate' },
-  { key: 'avgDev', label: 'Avg Point Deviation from Winner', flex: 1.8 },
+  { key: 'player', label: 'Player', flex: 2.2, width: 140, align: 'left' },
+  { key: 'matches', label: '# Matches', width: 84 },
+  { key: 'wins', label: '# Wins', width: 72 },
+  { key: 'winRate', label: 'Win Rate', width: 84 },
+  { key: 'avgDev', label: 'Avg Point Deviation from Winner', flex: 1.8, width: 150 },
 ];
 
 type StatsRow = {
@@ -159,8 +160,15 @@ export default function StatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  controls: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4 },
-  content: { padding: 16 },
+  controls: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  content: { padding: 16, width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
   centered: { paddingTop: 48, alignItems: 'center' },
   cardTitle: { textAlign: 'center', marginBottom: 14 },
   message: { textAlign: 'center' },
