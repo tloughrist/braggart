@@ -12,9 +12,14 @@ import { Colors } from '@/constants/Colors';
 import { MAX_CONTENT_WIDTH } from '@/constants/layout';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import {
+  createMatch,
+  createTeamMatch,
+  getGames,
+  getGroupMembers,
+  type GameRef,
+} from '@/lib/api';
 
-type GameInfo = { id: string; name: string; teamBased: boolean };
 type Entry = { player: PlayerOption; score: string; handicap: string };
 type Team = { key: string; name: string; score: string; players: PlayerOption[] };
 type Msg = { type: 'error' | 'success'; text: string };
@@ -27,7 +32,7 @@ export default function RecordScreen() {
   const theme = Colors[scheme];
   const { activeGroupId, loading: groupsLoading } = useGroup();
 
-  const [games, setGames] = useState<GameInfo[]>([]);
+  const [games, setGames] = useState<GameRef[]>([]);
   const [members, setMembers] = useState<PlayerOption[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,31 +53,10 @@ export default function RecordScreen() {
     let active = true;
     setLoading(true);
     (async () => {
-      const [g, m] = await Promise.all([
-        supabase.from('games').select('id, name, team_based').order('name'),
-        supabase
-          .from('player_groups')
-          .select('player:players(id, display_name, username)')
-          .eq('group_id', activeGroupId)
-          .eq('status', 'active'),
-      ]);
+      const [g, m] = await Promise.all([getGames(), getGroupMembers(activeGroupId)]);
       if (!active) return;
-      setGames(
-        (g.data ?? []).map((x: any) => ({
-          id: x.id as string,
-          name: x.name as string,
-          teamBased: !!x.team_based,
-        })),
-      );
-      setMembers(
-        (m.data ?? [])
-          .map((r: any) => (Array.isArray(r.player) ? r.player[0] : r.player))
-          .filter(Boolean)
-          .map((x: any) => ({
-            id: x.id as string,
-            name: (x.display_name as string) || (x.username as string) || 'Player',
-          })),
-      );
+      setGames(g);
+      setMembers(m.map((x) => ({ id: x.id, name: x.name })));
       resetForm();
       setLoading(false);
     })();
@@ -163,21 +147,21 @@ export default function RecordScreen() {
     setMessage(null);
     const iso = date.toISOString();
     const { error } = isTeam
-      ? await supabase.rpc('create_team_match', {
-          p_game_id: gameId,
-          p_group_id: activeGroupId,
-          p_date: iso,
-          p_teams: teams.map((t) => ({
+      ? await createTeamMatch({
+          gameId,
+          groupId: activeGroupId,
+          date: iso,
+          teams: teams.map((t) => ({
             name: t.name.trim() || 'Team',
             score: Number(t.score),
             player_ids: t.players.map((p) => p.id),
           })),
         })
-      : await supabase.rpc('create_match', {
-          p_game_id: gameId,
-          p_group_id: activeGroupId,
-          p_date: iso,
-          p_players: entries.map((e) => ({
+      : await createMatch({
+          gameId,
+          groupId: activeGroupId,
+          date: iso,
+          players: entries.map((e) => ({
             player_id: e.player.id,
             score: Number(e.score),
             handicap: e.handicap.trim() === '' ? 0 : Number(e.handicap),
@@ -185,7 +169,7 @@ export default function RecordScreen() {
         });
     setSaving(false);
     if (error) {
-      setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: error });
       return;
     }
     setMessage({ type: 'success', text: 'Match recorded!' });

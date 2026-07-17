@@ -10,9 +10,14 @@ import { MAX_CONTENT_WIDTH } from '@/constants/layout';
 import { useAuth } from '@/context/auth';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import {
+  addGroupMember,
+  createGroup as createGroupApi,
+  getAllPlayers,
+  getGroupMembers,
+  type GroupMember,
+} from '@/lib/api';
 
-type Member = { id: string; name: string; role: string };
 type Msg = { type: 'error' | 'success'; text: string };
 
 export default function GroupScreen() {
@@ -21,7 +26,7 @@ export default function GroupScreen() {
   const { user } = useAuth();
   const { activeGroup, activeGroupId, setActiveGroupId, refresh } = useGroup();
 
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [allPlayers, setAllPlayers] = useState<PlayerOption[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [newName, setNewName] = useState('');
@@ -34,20 +39,7 @@ export default function GroupScreen() {
       return;
     }
     setLoadingMembers(true);
-    const { data } = await supabase
-      .from('player_groups')
-      .select('role, player:players(id, display_name, username)')
-      .eq('group_id', activeGroupId)
-      .eq('status', 'active');
-    const list: Member[] = (data ?? []).map((r: any) => {
-      const p = Array.isArray(r.player) ? r.player[0] : r.player;
-      return {
-        id: p?.id,
-        name: p?.display_name || p?.username || 'Player',
-        role: r.role as string,
-      };
-    });
-    setMembers(list);
+    setMembers(await getGroupMembers(activeGroupId));
     setLoadingMembers(false);
   }, [activeGroupId]);
 
@@ -57,19 +49,9 @@ export default function GroupScreen() {
 
   useEffect(() => {
     let active = true;
-    (async () => {
-      const { data } = await supabase
-        .from('players')
-        .select('id, display_name, username')
-        .order('display_name');
-      if (!active) return;
-      setAllPlayers(
-        (data ?? []).map((x: any) => ({
-          id: x.id as string,
-          name: (x.display_name as string) || (x.username as string) || 'Player',
-        })),
-      );
-    })();
+    getAllPlayers().then((players) => {
+      if (active) setAllPlayers(players);
+    });
     return () => {
       active = false;
     };
@@ -88,27 +70,24 @@ export default function GroupScreen() {
     if (!name) return;
     setBusy(true);
     setMessage(null);
-    const { data, error } = await supabase.rpc('create_group', { p_name: name });
+    const { data, error } = await createGroupApi(name);
     setBusy(false);
     if (error) {
-      setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: error });
       return;
     }
     setNewName('');
     await refresh();
-    if (typeof data === 'string') setActiveGroupId(data);
+    if (data) setActiveGroupId(data);
     setMessage({ type: 'success', text: 'Group created!' });
   }
 
   async function addMember(p: PlayerOption) {
     if (!activeGroupId) return;
     setMessage(null);
-    const { error } = await supabase.rpc('add_group_member', {
-      p_group_id: activeGroupId,
-      p_player_id: p.id,
-    });
+    const { error } = await addGroupMember(activeGroupId, p.id);
     if (error) {
-      setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: error });
       return;
     }
     loadMembers();

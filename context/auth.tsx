@@ -1,7 +1,6 @@
-import type { Session, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 
-import { supabase } from '@/lib/supabase';
+import { auth as authApi, type Session, type User } from '@/lib/api';
 
 type AuthContextValue = {
   session: Session | null;
@@ -26,41 +25,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let mounted = true;
 
-    // Guard against a stale session whose profile no longer exists (e.g. the
-    // account was deleted, or the local DB was reset out from under the token).
-    // Without a players row, owner-scoped writes fail with an FK error, so we
-    // sign such sessions out and fall back to the sign-in screen.
-    async function ensureProfile(s: Session | null): Promise<Session | null> {
-      if (!s) return null;
-      const { data, error } = await supabase
-        .from('players')
-        .select('id')
-        .eq('id', s.user.id)
-        .maybeSingle();
-      // Fail open on transient errors; only sign out when the profile is truly absent.
-      if (!error && !data) {
-        await supabase.auth.signOut();
-        return null;
+    // Hydrate from any persisted session, but guard against a stale token whose
+    // profile no longer exists (deleted account, or the local DB was reset out
+    // from under it) — without a players row, owner-scoped writes fail with an
+    // FK error, so sign such sessions out and fall back to the sign-in screen.
+    authApi.getSession().then(async (s) => {
+      let valid = s;
+      if (s && !(await authApi.profileExists(s.user.id))) {
+        await authApi.signOut();
+        valid = null;
       }
-      return s;
-    }
-
-    // 1) hydrate from any persisted session, validating the profile exists
-    supabase.auth.getSession().then(async ({ data }) => {
-      const validated = await ensureProfile(data.session);
       if (!mounted) return;
-      setSession(validated);
+      setSession(valid);
       setInitializing(false);
     });
 
-    // 2) keep in sync with sign-in / sign-out / token-refresh events
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-    });
+    // Keep in sync with sign-in / sign-out / token-refresh events.
+    const unsubscribe = authApi.onAuthStateChange(setSession);
 
     return () => {
       mounted = false;
-      sub.subscription.unsubscribe();
+      unsubscribe();
     };
   }, []);
 
@@ -68,21 +53,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     session,
     user: session?.user ?? null,
     initializing,
-    signIn: async (email, password) => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
-    },
-    signUp: async (email, password, displayName) => {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: displayName ? { display_name: displayName } : undefined },
-      });
-      return { error: error?.message ?? null };
-    },
-    signOut: async () => {
-      await supabase.auth.signOut();
-    },
+    signIn: authApi.signIn,
+    signUp: authApi.signUp,
+    signOut: authApi.signOut,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

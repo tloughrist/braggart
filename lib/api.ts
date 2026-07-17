@@ -1,0 +1,222 @@
+/**
+ * Data-access layer. This is the ONLY module that talks to the Supabase client
+ * directly — screens and contexts call the domain functions here. Swapping the
+ * backend (e.g. to an AWS API Gateway + Lambda REST API) means reimplementing
+ * this file and nothing else.
+ *
+ * Conventions:
+ *  - Errors are normalized to `string | null` (never the provider's error type).
+ *  - Relational embeds are flattened to plain domain shapes.
+ */
+import { supabase } from '@/lib/supabase';
+
+export type { Session, User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
+
+// ── domain types ────────────────────────────────────────────────────────────
+export type Result<T> = { data: T | null; error: string | null };
+export type Group = { id: string; name: string };
+export type PlayerRef = { id: string; name: string };
+export type GroupMember = { id: string; name: string; role: string };
+export type GameRef = { id: string; name: string; teamBased: boolean };
+export type Profile = {
+  display_name: string | null;
+  username: string | null;
+  color_1: string | null;
+  color_2: string | null;
+};
+export type StatsRow = {
+  game_id: string;
+  game_name: string;
+  display_name: string | null;
+  matches: number;
+  wins: number;
+  win_rate: number | string;
+  avg_point_deviation: number | string;
+};
+export type MatchPlayerInput = { player_id: string; score: number; handicap?: number };
+export type MatchTeamInput = { name: string; score: number; player_ids: string[] };
+
+// PostgREST returns a to-one embed as an object, but the client types it loose;
+// normalize to a single row either way.
+const unwrapOne = (rel: any) => (Array.isArray(rel) ? rel[0] : rel);
+const playerName = (p: any): string => p?.display_name || p?.username || 'Player';
+
+// ── auth ────────────────────────────────────────────────────────────────────
+export const auth = {
+  async getSession(): Promise<Session | null> {
+    const { data } = await supabase.auth.getSession();
+    return data.session;
+  },
+  /** Subscribe to auth changes; returns an unsubscribe function. */
+  onAuthStateChange(cb: (session: Session | null) => void): () => void {
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => cb(session));
+    return () => data.subscription.unsubscribe();
+  },
+  async signIn(email: string, password: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error: error?.message ?? null };
+  },
+  async signUp(
+    email: string,
+    password: string,
+    displayName?: string,
+  ): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: displayName ? { display_name: displayName } : undefined },
+    });
+    return { error: error?.message ?? null };
+  },
+  async signOut(): Promise<void> {
+    await supabase.auth.signOut();
+  },
+  async updatePassword(password: string): Promise<{ error: string | null }> {
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error: error?.message ?? null };
+  },
+  /** True if the user's player profile exists; fails open on transient errors. */
+  async profileExists(userId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('players')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    return error ? true : !!data;
+  },
+};
+
+// ── groups ──────────────────────────────────────────────────────────────────
+export async function getMyGroups(userId: string): Promise<Group[]> {
+  const { data } = await supabase
+    .from('player_groups')
+    .select('group:groups(id, name)')
+    .eq('player_id', userId)
+    .eq('status', 'active');
+  return (data ?? [])
+    .map((r: any) => unwrapOne(r.group))
+    .filter(Boolean)
+    .map((g: any) => ({ id: g.id as string, name: g.name as string }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function getGroupMembers(groupId: string): Promise<GroupMember[]> {
+  const { data } = await supabase
+    .from('player_groups')
+    .select('role, player:players(id, display_name, username)')
+    .eq('group_id', groupId)
+    .eq('status', 'active');
+  return (data ?? [])
+    .map((r: any) => {
+      const p = unwrapOne(r.player);
+      return p ? { id: p.id as string, name: playerName(p), role: r.role as string } : null;
+    })
+    .filter(Boolean) as GroupMember[];
+}
+
+export async function getAllPlayers(): Promise<PlayerRef[]> {
+  const { data } = await supabase
+    .from('players')
+    .select('id, display_name, username')
+    .order('display_name');
+  return (data ?? []).map((p: any) => ({ id: p.id as string, name: playerName(p) }));
+}
+
+export async function createGroup(name: string): Promise<Result<string>> {
+  const { data, error } = await supabase.rpc('create_group', { p_name: name });
+  return { data: typeof data === 'string' ? data : null, error: error?.message ?? null };
+}
+
+export async function addGroupMember(
+  groupId: string,
+  playerId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('add_group_member', {
+    p_group_id: groupId,
+    p_player_id: playerId,
+  });
+  return { error: error?.message ?? null };
+}
+
+// ── games ───────────────────────────────────────────────────────────────────
+export async function getGames(): Promise<GameRef[]> {
+  const { data } = await supabase.from('games').select('id, name, team_based').order('name');
+  return (data ?? []).map((g: any) => ({
+    id: g.id as string,
+    name: g.name as string,
+    teamBased: !!g.team_based,
+  }));
+}
+
+// ── stats ───────────────────────────────────────────────────────────────────
+export async function getGroupStats(groupId: string): Promise<Result<StatsRow[]>> {
+  const { data, error } = await supabase
+    .from('game_player_stats')
+    .select('game_id, game_name, display_name, matches, wins, win_rate, avg_point_deviation')
+    .eq('group_id', groupId)
+    .order('game_name', { ascending: true })
+    .order('wins', { ascending: false })
+    .order('avg_point_deviation', { ascending: true })
+    .returns<StatsRow[]>();
+  return { data: data ?? null, error: error?.message ?? null };
+}
+
+// ── profile ─────────────────────────────────────────────────────────────────
+export async function getProfile(userId: string): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('players')
+    .select('display_name, username, color_1, color_2')
+    .eq('id', userId)
+    .single();
+  return (data as Profile) ?? null;
+}
+
+export async function getPlayerTotals(userId: string): Promise<{ matches: number; wins: number }> {
+  const { data } = await supabase
+    .from('game_player_stats')
+    .select('matches, wins')
+    .eq('player_id', userId);
+  const matches = (data ?? []).reduce((n: number, r: any) => n + (r.matches ?? 0), 0);
+  const wins = (data ?? []).reduce((n: number, r: any) => n + (r.wins ?? 0), 0);
+  return { matches, wins };
+}
+
+export async function updateProfile(
+  userId: string,
+  patch: { display_name: string | null; color_1: string; color_2: string },
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('players').update(patch).eq('id', userId);
+  return { error: error?.message ?? null };
+}
+
+// ── matches ─────────────────────────────────────────────────────────────────
+export async function createMatch(input: {
+  gameId: string;
+  groupId: string | null;
+  date: string;
+  players: MatchPlayerInput[];
+}): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('create_match', {
+    p_game_id: input.gameId,
+    p_group_id: input.groupId,
+    p_date: input.date,
+    p_players: input.players,
+  });
+  return { error: error?.message ?? null };
+}
+
+export async function createTeamMatch(input: {
+  gameId: string;
+  groupId: string | null;
+  date: string;
+  teams: MatchTeamInput[];
+}): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('create_team_match', {
+    p_game_id: input.gameId,
+    p_group_id: input.groupId,
+    p_date: input.date,
+    p_teams: input.teams,
+  });
+  return { error: error?.message ?? null };
+}

@@ -8,14 +8,14 @@ import { Colors } from '@/constants/Colors';
 import { MAX_CONTENT_WIDTH } from '@/constants/layout';
 import { useAuth } from '@/context/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import {
+  auth as authApi,
+  getPlayerTotals,
+  getProfile,
+  updateProfile,
+  type Profile,
+} from '@/lib/api';
 
-type Profile = {
-  display_name: string | null;
-  username: string | null;
-  color_1: string | null;
-  color_2: string | null;
-};
 type Msg = { type: 'error' | 'success'; text: string };
 
 // Identity color palette — tap to set a primary/secondary color.
@@ -59,14 +59,7 @@ export default function ProfileScreen() {
     if (!user) return;
     let active = true;
     (async () => {
-      const [{ data: p }, { data: s }] = await Promise.all([
-        supabase
-          .from('players')
-          .select('display_name, username, color_1, color_2')
-          .eq('id', user.id)
-          .single(),
-        supabase.from('game_player_stats').select('matches, wins').eq('player_id', user.id),
-      ]);
+      const [p, totals] = await Promise.all([getProfile(user.id), getPlayerTotals(user.id)]);
       if (!active) return;
       if (p) {
         setProfile(p);
@@ -74,9 +67,7 @@ export default function ProfileScreen() {
         setColor1(p.color_1 ?? SWATCHES[0]);
         setColor2(p.color_2 ?? SWATCHES[1]);
       }
-      const matches = (s ?? []).reduce((n, r: any) => n + (r.matches ?? 0), 0);
-      const wins = (s ?? []).reduce((n, r: any) => n + (r.wins ?? 0), 0);
-      setTotals({ matches, wins });
+      setTotals(totals);
       setLoading(false);
     })();
     return () => {
@@ -93,13 +84,14 @@ export default function ProfileScreen() {
     if (!user) return;
     setSavingProfile(true);
     setProfileMsg(null);
-    const { error } = await supabase
-      .from('players')
-      .update({ display_name: name.trim() || null, color_1: color1, color_2: color2 })
-      .eq('id', user.id);
+    const { error } = await updateProfile(user.id, {
+      display_name: name.trim() || null,
+      color_1: color1,
+      color_2: color2,
+    });
     setSavingProfile(false);
     if (error) {
-      setProfileMsg({ type: 'error', text: error.message });
+      setProfileMsg({ type: 'error', text: error });
       return;
     }
     setProfile((prev) => (prev ? { ...prev, display_name: name.trim() || null } : prev));
@@ -117,10 +109,10 @@ export default function ProfileScreen() {
       return;
     }
     setSavingPw(true);
-    const { error } = await supabase.auth.updateUser({ password: newPw });
+    const { error } = await authApi.updatePassword(newPw);
     setSavingPw(false);
     if (error) {
-      setPwMsg({ type: 'error', text: error.message });
+      setPwMsg({ type: 'error', text: error });
       return;
     }
     setNewPw('');

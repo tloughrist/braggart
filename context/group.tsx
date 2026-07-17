@@ -9,9 +9,9 @@ import {
 } from 'react';
 
 import { useAuth } from '@/context/auth';
-import { supabase } from '@/lib/supabase';
+import { getMyGroups, type Group } from '@/lib/api';
 
-export type Group = { id: string; name: string };
+export type { Group };
 
 type GroupContextValue = {
   groups: Group[];
@@ -40,16 +40,7 @@ export function GroupProvider({ children }: PropsWithChildren) {
       return;
     }
     setLoading(true);
-    const { data } = await supabase
-      .from('player_groups')
-      .select('group:groups(id, name)')
-      .eq('player_id', user.id)
-      .eq('status', 'active');
-
-    const list: Group[] = (data ?? [])
-      .map((r: any) => (Array.isArray(r.group) ? r.group[0] : r.group))
-      .filter(Boolean)
-      .sort((a: Group, b: Group) => a.name.localeCompare(b.name));
+    const list = await getMyGroups(user.id);
     setGroups(list);
 
     const saved = await AsyncStorage.getItem(STORAGE_KEY);

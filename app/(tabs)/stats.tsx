@@ -10,7 +10,7 @@ import { Colors } from '@/constants/Colors';
 import { MAX_CONTENT_WIDTH } from '@/constants/layout';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { supabase } from '@/lib/supabase';
+import { getGroupStats, type StatsRow } from '@/lib/api';
 
 const COLUMNS: StatColumn[] = [
   { key: 'player', label: 'Player', flex: 2.2, width: 140, align: 'left' },
@@ -19,16 +19,6 @@ const COLUMNS: StatColumn[] = [
   { key: 'winRate', label: 'Win Rate', width: 84 },
   { key: 'avgDev', label: 'Avg Point Deviation from Winner', flex: 1.8, width: 150 },
 ];
-
-type StatsRow = {
-  game_id: string;
-  game_name: string;
-  display_name: string | null;
-  matches: number;
-  wins: number;
-  win_rate: number | string;
-  avg_point_deviation: number | string;
-};
 
 // Trim trailing zeros for display: 0.00 → "0", 49.00 → "49", 10.33 → "10.33".
 const fmt = (v: number | string) => {
@@ -59,17 +49,10 @@ export default function StatsScreen() {
     let active = true;
     setLoading(true);
     (async () => {
-      const { data, error } = await supabase
-        .from('game_player_stats')
-        .select('game_id, game_name, display_name, matches, wins, win_rate, avg_point_deviation')
-        .eq('group_id', activeGroupId)
-        .order('game_name', { ascending: true })
-        .order('wins', { ascending: false })
-        .order('avg_point_deviation', { ascending: true })
-        .returns<StatsRow[]>();
+      const { data, error } = await getGroupStats(activeGroupId);
       if (!active) return;
       if (error) {
-        setError(error.message);
+        setError(error);
         setLoading(false);
         return;
       }
