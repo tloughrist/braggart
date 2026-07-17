@@ -27,6 +27,7 @@ const MAPPING = {
   'plus.circle.fill': 'add-circle',
   'person.2.fill': 'groups',
   'checkmark': 'check',
+  'person.crop.circle.fill': 'account-circle',
 } as IconMapping;
 
 /**

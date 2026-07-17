@@ -11,13 +11,15 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 type Props = {
   /** Optional menu handler; the hamburger renders regardless (drawer wiring is TBD). */
   onMenuPress?: () => void;
+  /** Show the active-group switcher below the wordmark. Off for non-group screens. */
+  showGroup?: boolean;
 };
 
 /**
  * Braggart's brand header: a brick-red band with the hamburger nav and the
  * Fredoka wordmark (cream on red), matching the design mockup.
  */
-export function AppHeader({ onMenuPress }: Props) {
+export function AppHeader({ onMenuPress, showGroup = true }: Props) {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
   const insets = useSafeAreaInsets();
@@ -46,7 +48,7 @@ export function AppHeader({ onMenuPress }: Props) {
         <View style={styles.menuButton} />
       </View>
 
-      <GroupSwitcher />
+      {showGroup && <GroupSwitcher />}
     </View>
   );
 }
