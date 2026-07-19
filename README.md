@@ -1,82 +1,157 @@
-# braggart
+# Braggart
 
-## Purpose
-- Keep track of tabletop game statistics among your friends.
+Braggart is a cross-platform mobile app for tracking tabletop game statistics
+within a group of friends, and for turning that match history into meaningful
+player rankings, including principled comparisons between players who have never
+actually faced each other.
 
-## Preview
+It is built as a single Expo / React Native codebase targeting iOS, Android, and
+web, on a Postgres backend with database-enforced authorization, SQL-computed
+statistics, and a rating-plus-graph engine for the rankings.
 
-Sign-in screen (light mode):
+> Status: personal portfolio project. The core app (authentication, groups,
+> match recording, group-scoped statistics, profiles) is functional. The ranking
+> engine is implemented and validated in SQL. Web hosting is defined as
+> infrastructure-as-code on AWS and pending account activation. See
+> [Project status](#project-status).
+
+## Screenshots
+
+Sign-in (light theme):
 
 ![Braggart sign-in screen](assets/images/signin-light.png)
 
-## Features
-- Profile
-	- Login/persistent account
-	- Change display name
-	- Change password
-	- Change profile picture
-	- Display stats
-	- Select primary and secondary colors
-- Games
-	- Large preset game library (big time suck here) - unless there's a way to scrape and process BGG's library
-	- Add new games locally
-	- Edit games locally
-	- Delete games locally
-	- Display personal game stats
-	- For games in the universal library, display global stats (?? Do we want to do this? Or do we just want this for local groups? This would be a hard feature to add later.)
-	- Set win conditions and weights for local games
-	- Create a local copy of a game from the universal library
-	- Change thumbnail picture for local games
-	- Variants
-- Matches
-	- Create match
-	- Add players
-	- Randomly select first player
-	- Assign order of play (optional)
-	- Edit date of match
-	- Edit match notes
-	- Match is owned by a single player
-	- Owner and only owner can edit scores
-	- Add handicaps to players for the match
-	- Add pictures from the session
-- Groups
-- Friendships
-- Teams
-- Notes
-	- Mentions
-- Trophies
-- Stats
-	- This is the primary feature of the app
-	- Various statistics are collected from every match
-	- Different statistical models can be applied to provide rankings within a group
+## What it does
 
-?? NETWORK RANKINGS: Do we only want to compare within a group? Imagine that Tim and James are both in group A and both in group B. Both groups play Settlers of Catan. If Tim wants to know whether he's a better player than James, should it only be T>J wrt A or should there be an option to compare Tim and James simpliciter? What if Tim and James have never played each other, but they've both played Sandy...should we use their stats relative to Sandy to establish a ranking between Tim and James? Perhaps include a "Networked Ranking" toggle. How far out should the network extend? Certainly no more than seven degrees of separation. How would that even be determined?
-- A **friends_of_friends** association for each player, perhaps
-- Friends of the friends of the friends of the friends of the friends of the friends of the friends of the player -- this would be a huge query...any way to make it more efficient?
-- We want friends_of_friends limited to those who have played Settlers of Catan against each other
-	- Sa|b: a has played settlers of catan with b
-	- fof = []
-	- fof << x where Sx|tim
-	- fof << x where Sx|y where y is any member of fof
-	- FOF0: Tim
-	- FOF1: All those who have played soc with Tim
-	- FOF2: Anyone who has played soc with those in FOF1 who are not themselves in FOF1 nor FOF0
-	- FOF3: Anyone who has played soc with those in FOF2 who are not themselves in FOF2 nor FOF1 nor FOF0
-- Call these fof_soc
-- We want the intersection of Tim's fof_soc and James' fof_soc
-- better_than rankings or this_much_better_than rankings?
+- **Record matches** — individual or team-based, with per-player handicaps and a
+  chosen match date. Winners and finishing places are computed on the server
+  from the scores, respecting each game's scoring direction (highest or lowest
+  wins).
+- **Group-scoped leaderboards** — per-game statistics (matches played, wins, win
+  rate, average point deviation from the winner) scoped to the currently active
+  group.
+- **Groups** — create groups, manage members, and switch the active group; all
+  recording and stats follow it.
+- **Profiles** — editable display name, identity colors, password, and a
+  personal win/loss summary computed from match history.
+- **Fast entry** — type-to-filter search for games and players, so a large
+  library stays usable on a phone.
+- **Mobile-first and responsive** — one layout that adapts from a narrow phone to
+  wide web (for example, a stat table that scrolls horizontally on a phone and
+  fills the card on desktop).
 
-This diagram reflects the **as-built schema** in
-`supabase/migrations/0001_initial_schema.sql`. Notes:
+## Tech stack
 
-- Credentials (password, auth) live in Supabase's `auth.users`; `players` is the
-  public profile, keyed 1:1 to the auth user.
-- Images live in Supabase Storage; the single `assets` table (full image +
-  optional `thumbnail_path`) replaces the old Thumbnails/Assets split.
-- Variants are modeled as a game with a `parent_game_id` self-reference rather
-  than a separate table.
-- Lifecycle/soft-delete uses typed enums (`entity_status`, `match_status`,
-  `friendship_status`, `membership_status`) instead of free-text `state`.
+- **Frontend**: Expo, React Native, expo-router, TypeScript. A single codebase
+  runs on iOS, Android, and the web.
+- **Backend**: Supabase (managed Postgres). The schema, constraints, row-level
+  security policies, SQL views, and stored functions are all version-controlled
+  as migrations.
+- **Data access**: one module, `lib/api.ts`, is the only code that talks to the
+  backend client; every screen calls typed domain functions instead. This keeps
+  the backend behind a single, replaceable boundary.
+- **Infrastructure**: AWS CDK (TypeScript) defines the web hosting stack
+  (private S3 bucket behind a CloudFront distribution).
+
+## The ranking system
+
+Braggart's headline feature is comparative player rankings, and specifically the
+ability to compare two players who have never played each other directly. It
+combines a rating model with a graph model.
+
+**Rating: who is better?** Each player earns a skill rating from match outcomes.
+Two systems are implemented:
+
+- **Elo**, the familiar baseline.
+- **Glicko-2**, which additionally tracks a *rating deviation* (how uncertain the
+  rating is) and a *volatility* (how erratic the player's results are). A player
+  with only a couple of games is reported as highly uncertain rather than falsely
+  precise.
+
+Because ratings propagate through shared opponents, they are inherently
+transitive: if Tim beats Garrett and James repeatedly loses to Garrett, Tim
+ranks above James even if the two never met.
+
+**Graph: how comparable are they?** Players are nodes and "has played game X
+against" is an edge (derived from shared matches). A recursive traversal measures
+how two players are connected: their degrees of separation and their shared
+opponents. A comparison drawn through two mutual opponents is more trustworthy
+than one drawn through a long, tenuous chain.
+
+**Together.** The rating answers "who is better," and the graph answers "how
+confident should we be." For two players who never met, Braggart reports an
+uncertainty-aware win probability (from Glicko-2's ratings and deviations)
+alongside a confidence that reflects both rating uncertainty and network
+distance. Example output from seeded data:
+
+```
+Tim 1501 (RD 221)  vs  James 1203 (RD 175)
+  win probability:  78%   (uncertainty-aware)
+  connectivity:     depth 2 via 2 shared opponents (Barb, Garrett)
+```
+
+Tim and James never played, but they are connected through Barb and Garrett, so
+the comparison is meaningful, with a confidence tempered by both players' limited
+game counts.
+
+**Implementation.** The whole system runs in Postgres, with no separate graph
+database. Recursive common table expressions perform the graph traversal, and
+Glicko-2 (including its iterative volatility solver) is implemented in plpgsql.
+The rating models sit behind a common interface, so additional systems such as
+TrueSkill can be added without changing how the rest of the app requests a
+ranking. Postgres was chosen over a dedicated graph database deliberately: the
+graph is small and bounded, its edges are derived from existing relational data,
+and staying in one datastore avoids the operational cost of syncing two.
+
+## Engineering highlights
+
+- **Authorization lives in the database.** Access rules are enforced by Postgres
+  row-level security, not only in the client. For example, only a match's owner
+  can edit its scores, enforced by an RLS policy rather than application code.
+- **Statistics as SQL.** Leaderboards are produced by a security-invoker SQL view
+  (`game_player_stats`), so the computation sits next to the data and honors each
+  user's row-level permissions automatically.
+- **Atomic writes.** Recording a match (a match row plus one row per participant,
+  with winner and placement logic) is a single transactional Postgres function,
+  so a partial write cannot occur.
+- **A replaceable backend boundary.** Because all data access flows through
+  `lib/api.ts`, moving from Supabase to a different backend (for instance an AWS
+  API Gateway and Lambda service) means reimplementing one module rather than
+  touching the UI.
+- **Infrastructure as code.** Hosting is defined with AWS CDK rather than console
+  clicks, so the environment is reproducible and reviewable.
+
+## Project status
+
+- **Built and functional**: authentication with session handling, groups and
+  membership, match recording (individual and team, with handicaps and dates),
+  group-scoped per-game leaderboards, profiles, searchable pickers, and a
+  mobile-first responsive UI, all behind row-level security and the `lib/api.ts`
+  data-access layer.
+- **Implemented and validated in SQL, not yet surfaced in the app UI**: the
+  ranking engine (Elo, Glicko-2, graph connectivity, and a pluggable model
+  dispatcher). See `supabase/prototypes/networked-rankings.sql`.
+- **In progress**: AWS web deployment. The CDK stack synthesizes cleanly and is
+  awaiting AWS account activation.
+- **Planned**: profile-picture uploads, friendships, trophies, session notes, and
+  a shared game library. The schema already anticipates these.
+
+## Data model
+
+The schema is defined in `supabase/migrations/`. The diagram below reflects the
+as-built structure. A few deliberate modeling choices:
+
+- Credentials live in Supabase's `auth.users`; `players` is the public profile,
+  keyed one-to-one to the auth user.
+- Images live in object storage; a single `assets` table (full image plus an
+  optional thumbnail path) is referenced by the entities that need one.
+- Game variants are modeled as a game with a `parent_game_id` self-reference
+  rather than a separate table.
+- Lifecycle and soft-delete use typed enums (`entity_status`, `match_status`,
+  `friendship_status`, `membership_status`) instead of free-text state columns.
+
+<details>
+<summary>Entity-relationship diagram (18 tables)</summary>
 
 ```mermaid
 classDiagram
@@ -257,3 +332,5 @@ classDiagram
 	games "1" --> "*" game_trophies
 	trophies "1" --> "*" game_trophies
 ```
+
+</details>
