@@ -410,6 +410,18 @@ export async function renameTournament(id: string, name: string): Promise<{ erro
   return { error: error?.message ?? null };
 }
 
+/** Delete a tournament; either delete its matches too or detach them (keep as normal matches). */
+export async function deleteTournament(
+  id: string,
+  deleteMatches: boolean,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('delete_tournament', {
+    p_tournament_id: id,
+    p_delete_matches: deleteMatches,
+  });
+  return { error: error?.message ?? null };
+}
+
 export async function updateMatch(input: {
   matchId: string;
   date: string;

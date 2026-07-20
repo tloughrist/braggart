@@ -3,6 +3,12 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 
 import { AppHeader } from '@/components/AppHeader';
 import { Card } from '@/components/Card';
+import {
+  defaultFilters,
+  filtersActive,
+  HistoryFilters,
+  type Filters,
+} from '@/components/HistoryFilters';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
 import { ThemedText } from '@/components/ThemedText';
 import { TournamentDetailModal } from '@/components/TournamentDetailModal';
@@ -26,6 +32,31 @@ function resultLine(m: MatchSummary): string {
 const dateOf = (m: MatchSummary) =>
   m.datePlayed ? new Date(m.datePlayed).toLocaleDateString() : '';
 
+const startOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+const endOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+};
+
+function passesFilters(m: MatchSummary, f: Filters): boolean {
+  if (f.gameId && m.gameId !== f.gameId) return false;
+  if (f.playerIds.length) {
+    const ids = new Set(m.participants.map((p) => p.playerId));
+    if (!f.playerIds.every((id) => ids.has(id))) return false;
+  }
+  if (f.dateOn) {
+    if (!m.datePlayed) return false;
+    const d = new Date(m.datePlayed);
+    if (d < startOfDay(f.from) || d > endOfDay(f.to)) return false;
+  }
+  return true;
+}
+
 export default function HistoryScreen() {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
@@ -37,6 +68,8 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedMatch, setSelectedMatch] = useState<MatchSummary | null>(null);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const update = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
   const load = useCallback(async () => {
     if (!activeGroupId) {
@@ -56,9 +89,31 @@ export default function HistoryScreen() {
     if (!groupsLoading) load();
   }, [groupsLoading, load]);
 
+  // Options for the filter controls, derived from what's actually in history.
+  const gameOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const m of matches) if (!seen.has(m.gameId)) seen.set(m.gameId, m.gameName);
+    return [...seen].map(([id, name]) => ({ id, name }));
+  }, [matches]);
+  const playerOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const m of matches) for (const p of m.participants) if (!seen.has(p.playerId)) seen.set(p.playerId, p.name);
+    return [...seen].map(([id, name]) => ({ id, name }));
+  }, [matches]);
+
+  const filtered = useMemo(() => {
+    const list = matches.filter((m) => passesFilters(m, filters));
+    list.sort((a, b) => {
+      const ta = a.datePlayed ? new Date(a.datePlayed).getTime() : 0;
+      const tb = b.datePlayed ? new Date(b.datePlayed).getTime() : 0;
+      return filters.sortDesc ? tb - ta : ta - tb;
+    });
+    return list;
+  }, [matches, filters]);
+
   const byTournament = useMemo(() => {
     const map = new Map<string, MatchSummary[]>();
-    for (const m of matches) {
+    for (const m of filtered) {
       if (m.tournamentId) {
         const arr = map.get(m.tournamentId) ?? [];
         arr.push(m);
@@ -66,9 +121,16 @@ export default function HistoryScreen() {
       }
     }
     return map;
-  }, [matches]);
+  }, [filtered]);
 
-  const standalone = useMemo(() => matches.filter((m) => !m.tournamentId), [matches]);
+  const standalone = useMemo(() => filtered.filter((m) => !m.tournamentId), [filtered]);
+
+  // With filters on, only show tournaments that still have matching matches.
+  const shownTournaments = useMemo(
+    () =>
+      tournaments.filter((t) => !filtersActive(filters) || (byTournament.get(t.id)?.length ?? 0) > 0),
+    [tournaments, byTournament, filters],
+  );
 
   async function endTour(id: string) {
     await endTournament(id);
@@ -76,6 +138,7 @@ export default function HistoryScreen() {
   }
 
   const empty = matches.length === 0 && tournaments.length === 0;
+  const nothingMatches = !empty && filtered.length === 0;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.primary }]}>
@@ -102,8 +165,22 @@ export default function HistoryScreen() {
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+          <HistoryFilters
+            filters={filters}
+            onChange={update}
+            onReset={() => setFilters(defaultFilters())}
+            games={gameOptions}
+            players={playerOptions}
+          />
+
+          {nothingMatches && (
+            <Card>
+              <ThemedText style={styles.message}>No matches match these filters.</ThemedText>
+            </Card>
+          )}
+
           {/* Tournaments */}
-          {tournaments.map((t) => {
+          {shownTournaments.map((t) => {
             const tMatches = byTournament.get(t.id) ?? [];
             const isOwner = !!t.ownerId && t.ownerId === user?.id;
             return (
@@ -141,7 +218,7 @@ export default function HistoryScreen() {
 
           {/* Standalone matches */}
           {standalone.length > 0 && (
-            <Card style={[styles.list, tournaments.length > 0 && styles.listSpaced]}>
+            <Card style={[styles.list, shownTournaments.length > 0 && styles.listSpaced]}>
               {standalone.map((m, i) => (
                 <Pressable
                   key={m.id}

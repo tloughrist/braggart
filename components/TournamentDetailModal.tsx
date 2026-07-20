@@ -4,7 +4,13 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput,
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { endTournament, renameTournament, type MatchSummary, type Tournament } from '@/lib/api';
+import {
+  deleteTournament,
+  endTournament,
+  renameTournament,
+  type MatchSummary,
+  type Tournament,
+} from '@/lib/api';
 
 type Props = {
   tournament: Tournament | null;
@@ -44,11 +50,13 @@ export function TournamentDetailModal({
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (tournament) {
       setName(tournament.name);
       setError(null);
+      setConfirmDelete(false);
     }
   }, [tournament]);
 
@@ -72,6 +80,16 @@ export function TournamentDetailModal({
     setBusy(true);
     setError(null);
     const { error } = await endTournament(tournament.id);
+    setBusy(false);
+    if (error) setError(error);
+    else onChanged();
+  }
+
+  async function remove(deleteMatches: boolean) {
+    if (!tournament) return;
+    setBusy(true);
+    setError(null);
+    const { error } = await deleteTournament(tournament.id, deleteMatches);
     setBusy(false);
     if (error) setError(error);
     else onChanged();
@@ -132,6 +150,56 @@ export function TournamentDetailModal({
                     <ThemedText style={{ color: theme.primary }}>End tournament</ThemedText>
                   </Pressable>
                 )}
+
+                {!confirmDelete ? (
+                  <Pressable
+                    onPress={() => setConfirmDelete(true)}
+                    disabled={busy}
+                    style={[styles.endButton, { borderColor: '#e5484d' }]}>
+                    <ThemedText style={{ color: '#e5484d' }}>Delete tournament</ThemedText>
+                  </Pressable>
+                ) : (
+                  <View style={[styles.confirmBox, { borderColor: theme.border }]}>
+                    {matches.length > 0 ? (
+                      <>
+                        <ThemedText style={styles.confirmText}>
+                          Delete this tournament? It has {matches.length}{' '}
+                          {matches.length === 1 ? 'match' : 'matches'}.
+                        </ThemedText>
+                        <Pressable
+                          onPress={() => remove(true)}
+                          disabled={busy}
+                          style={[styles.dangerBtn, { backgroundColor: '#e5484d' }]}>
+                          <ThemedText style={{ color: '#fff' }}>
+                            Delete tournament and its {matches.length}{' '}
+                            {matches.length === 1 ? 'match' : 'matches'}
+                          </ThemedText>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => remove(false)}
+                          disabled={busy}
+                          style={[styles.endButton, { borderColor: theme.primary, marginTop: 8 }]}>
+                          <ThemedText style={{ color: theme.primary }}>
+                            Delete tournament, keep matches
+                          </ThemedText>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <>
+                        <ThemedText style={styles.confirmText}>Delete this tournament?</ThemedText>
+                        <Pressable
+                          onPress={() => remove(false)}
+                          disabled={busy}
+                          style={[styles.dangerBtn, { backgroundColor: '#e5484d' }]}>
+                          <ThemedText style={{ color: '#fff' }}>Delete</ThemedText>
+                        </Pressable>
+                      </>
+                    )}
+                    <Pressable onPress={() => setConfirmDelete(false)} style={styles.cancel}>
+                      <ThemedText type="link">Cancel</ThemedText>
+                    </Pressable>
+                  </View>
+                )}
               </>
             )}
 
@@ -191,4 +259,13 @@ const styles = StyleSheet.create({
   loader: { marginTop: 12 },
   error: { color: '#e5484d', textAlign: 'center', marginTop: 12 },
   close: { alignItems: 'center', marginTop: 16 },
+  confirmBox: {
+    marginTop: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    padding: 12,
+  },
+  confirmText: { textAlign: 'center', marginBottom: 10 },
+  dangerBtn: { borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  cancel: { alignItems: 'center', marginTop: 10 },
 });
