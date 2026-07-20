@@ -8,6 +8,8 @@
  *  - Errors are normalized to `string | null` (never the provider's error type).
  *  - Relational embeds are flattened to plain domain shapes.
  */
+import { decode } from 'base64-arraybuffer';
+
 import { supabase } from '@/lib/supabase';
 
 export type { Session, User } from '@supabase/supabase-js';
@@ -24,6 +26,7 @@ export type Profile = {
   username: string | null;
   color_1: string | null;
   color_2: string | null;
+  avatarUrl: string | null;
 };
 export type StatsRow = {
   game_id: string;
@@ -216,10 +219,51 @@ export async function getGroupStats(groupId: string): Promise<Result<StatsRow[]>
 export async function getProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from('players')
-    .select('display_name, username, color_1, color_2')
+    .select('display_name, username, color_1, color_2, avatar:assets!players_avatar_fk(storage_path)')
     .eq('id', userId)
     .single();
-  return (data as Profile) ?? null;
+  if (!data) return null;
+  const asset = unwrapOne((data as any).avatar);
+  const avatarUrl = asset?.storage_path
+    ? supabase.storage.from('avatars').getPublicUrl(asset.storage_path).data.publicUrl
+    : null;
+  return {
+    display_name: (data as any).display_name,
+    username: (data as any).username,
+    color_1: (data as any).color_1,
+    color_2: (data as any).color_2,
+    avatarUrl,
+  };
+}
+
+/** Upload an avatar image (base64), record it as an asset, and link it to the player. */
+export async function uploadAvatar(
+  userId: string,
+  base64: string,
+  mime: string,
+): Promise<Result<string>> {
+  const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${userId}/avatar-${Date.now()}.${ext}`;
+
+  const { error: upErr } = await supabase.storage
+    .from('avatars')
+    .upload(path, decode(base64), { contentType: mime, upsert: true });
+  if (upErr) return { data: null, error: upErr.message };
+
+  const { data: asset, error: aErr } = await supabase
+    .from('assets')
+    .insert({ owner_id: userId, kind: 'avatar', storage_path: path })
+    .select('id')
+    .single();
+  if (aErr) return { data: null, error: aErr.message };
+
+  const { error: pErr } = await supabase
+    .from('players')
+    .update({ avatar_asset_id: asset.id })
+    .eq('id', userId);
+  if (pErr) return { data: null, error: pErr.message };
+
+  return { data: supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl, error: null };
 }
 
 export async function getPlayerTotals(userId: string): Promise<{ matches: number; wins: number }> {

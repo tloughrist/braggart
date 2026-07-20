@@ -34,6 +34,12 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Braggart uses your photos so you can set a profile picture."
+        }
       ]
     ],
     "experiments": {

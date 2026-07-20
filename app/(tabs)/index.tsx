@@ -1,3 +1,5 @@
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -13,6 +15,7 @@ import {
   getPlayerTotals,
   getProfile,
   updateProfile,
+  uploadAvatar,
   type Profile,
 } from '@/lib/api';
 
@@ -54,6 +57,8 @@ export default function ProfileScreen() {
   const [pwMsg, setPwMsg] = useState<Msg | null>(null);
 
   const [totals, setTotals] = useState<{ matches: number; wins: number } | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -66,6 +71,7 @@ export default function ProfileScreen() {
         setName(p.display_name ?? '');
         setColor1(p.color_1 ?? SWATCHES[0]);
         setColor2(p.color_2 ?? SWATCHES[1]);
+        setAvatarUrl(p.avatarUrl);
       }
       setTotals(totals);
       setLoading(false);
@@ -74,6 +80,37 @@ export default function ProfileScreen() {
       active = false;
     };
   }, [user]);
+
+  async function pickAvatar() {
+    if (!user) return;
+    setProfileMsg(null);
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setProfileMsg({ type: 'error', text: 'Photo library permission is needed to set an avatar.' });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: true,
+    });
+    if (result.canceled) return;
+    const picked = result.assets[0];
+    if (!picked.base64) {
+      setProfileMsg({ type: 'error', text: 'Could not read the selected image.' });
+      return;
+    }
+    setUploadingAvatar(true);
+    const { data: url, error } = await uploadAvatar(user.id, picked.base64, picked.mimeType ?? 'image/jpeg');
+    setUploadingAvatar(false);
+    if (error) {
+      setProfileMsg({ type: 'error', text: error });
+      return;
+    }
+    setAvatarUrl(url);
+  }
 
   const displayName = name || profile?.username || user?.email || 'Player';
   const initials = initialsOf(profile?.display_name || profile?.username || user?.email || '?');
@@ -131,9 +168,19 @@ export default function ProfileScreen() {
             {/* Identity */}
             <Card>
               <View style={styles.identity}>
-                <View style={[styles.avatar, { backgroundColor: color1 }]}>
-                  <ThemedText style={styles.avatarText}>{initials}</ThemedText>
-                </View>
+                <Pressable
+                  onPress={pickAvatar}
+                  style={[styles.avatar, { backgroundColor: color1 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change avatar">
+                  {uploadingAvatar ? (
+                    <ActivityIndicator color="#FAF1E1" />
+                  ) : avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatarImage} contentFit="cover" />
+                  ) : (
+                    <ThemedText style={styles.avatarText}>{initials}</ThemedText>
+                  )}
+                </Pressable>
                 <View style={styles.identityText}>
                   <ThemedText type="subtitle" numberOfLines={1}>
                     {displayName}
@@ -296,7 +343,15 @@ const styles = StyleSheet.create({
   card: { marginTop: 16 },
 
   identity: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: { width: 64, height: 64 },
   avatarText: { color: '#FAF1E1', fontSize: 24, fontWeight: '700' },
   identityText: { flex: 1 },
   muted: { opacity: 0.6 },
