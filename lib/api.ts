@@ -63,8 +63,16 @@ export type MatchSummary = {
   gameId: string;
   gameName: string;
   teamBased: boolean;
+  tournamentId: string | null;
   participants: MatchParticipant[];
   teams: MatchTeamResult[];
+};
+export type Tournament = {
+  id: string;
+  name: string;
+  status: string; // 'active' | 'completed'
+  ownerId: string | null;
+  createdAt: string | null;
 };
 
 export type RankingModel = { model: string; label: string; has_uncertainty: boolean };
@@ -290,12 +298,14 @@ export async function createMatch(input: {
   groupId: string | null;
   date: string;
   players: MatchPlayerInput[];
+  tournamentId?: string | null;
 }): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('create_match', {
     p_game_id: input.gameId,
     p_group_id: input.groupId,
     p_date: input.date,
     p_players: input.players,
+    p_tournament_id: input.tournamentId ?? null,
   });
   return { error: error?.message ?? null };
 }
@@ -305,12 +315,14 @@ export async function createTeamMatch(input: {
   groupId: string | null;
   date: string;
   teams: MatchTeamInput[];
+  tournamentId?: string | null;
 }): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('create_team_match', {
     p_game_id: input.gameId,
     p_group_id: input.groupId,
     p_date: input.date,
     p_teams: input.teams,
+    p_tournament_id: input.tournamentId ?? null,
   });
   return { error: error?.message ?? null };
 }
@@ -320,7 +332,7 @@ export async function getMatches(groupId: string): Promise<MatchSummary[]> {
   const { data } = await supabase
     .from('matches')
     .select(
-      `id, date_played, owner_id, game_id,
+      `id, date_played, owner_id, game_id, tournament_id,
        game:games ( name, team_based ),
        player_matches ( player_id, score, handicap, is_winner, finishing_place, team_id, player:players ( display_name ) ),
        team_matches ( team_id, score, is_winner, team:teams ( name ) )`,
@@ -338,6 +350,7 @@ export async function getMatches(groupId: string): Promise<MatchSummary[]> {
       gameId: m.game_id as string,
       gameName: game?.name ?? 'Game',
       teamBased: !!game?.team_based,
+      tournamentId: m.tournament_id as string | null,
       participants: (m.player_matches ?? []).map((pm: any) => ({
         playerId: pm.player_id as string,
         name: playerName(unwrapOne(pm.player)),
@@ -355,6 +368,46 @@ export async function getMatches(groupId: string): Promise<MatchSummary[]> {
       })),
     };
   });
+}
+
+// ── tournaments ─────────────────────────────────────────────────────────────
+export async function getTournaments(groupId: string): Promise<Tournament[]> {
+  const { data } = await supabase
+    .from('tournaments')
+    .select('id, name, status, owner_id, created_at')
+    .eq('group_id', groupId)
+    .order('created_at', { ascending: false });
+  return (data ?? []).map((t: any) => ({
+    id: t.id as string,
+    name: t.name as string,
+    status: t.status as string,
+    ownerId: t.owner_id as string | null,
+    createdAt: t.created_at as string | null,
+  }));
+}
+
+export async function createTournament(
+  name: string,
+  groupId: string,
+  ownerId: string,
+): Promise<Result<string>> {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .insert({ name, group_id: groupId, owner_id: ownerId })
+    .select('id')
+    .single();
+  if (error) return { data: null, error: error.message };
+  return { data: data.id as string, error: null };
+}
+
+export async function endTournament(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('tournaments').update({ status: 'completed' }).eq('id', id);
+  return { error: error?.message ?? null };
+}
+
+export async function renameTournament(id: string, name: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('tournaments').update({ name }).eq('id', id);
+  return { error: error?.message ?? null };
 }
 
 export async function updateMatch(input: {

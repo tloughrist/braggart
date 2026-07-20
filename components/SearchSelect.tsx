@@ -6,58 +6,66 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-export type GameOption = { id: string; name: string };
+export type SelectOption = { id: string; name: string };
 
 type Props = {
-  games: GameOption[];
+  options: SelectOption[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** When provided, a clear option (default label "None") is shown that resets the selection. */
+  onClear?: () => void;
+  clearLabel?: string;
+  placeholder?: string;
+  searchPlaceholder?: string;
 };
 
 /**
- * A searchable game select: tap to open a sheet, type to filter, pick one.
- * Scales to large libraries (hundreds of games) where a chip row wouldn't.
+ * A searchable single-select: tap to open a sheet, type to filter, pick one.
+ * Scales to large lists (games, tournaments, groups) where a chip row wouldn't.
  */
-export function GameSelect({ games, selectedId, onSelect }: Props) {
+export function SearchSelect({
+  options,
+  selectedId,
+  onSelect,
+  onClear,
+  clearLabel = 'None',
+  placeholder = 'Select…',
+  searchPlaceholder = 'Search…',
+}: Props) {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
-  const selected = games.find((g) => g.id === selectedId);
+  const selected = options.find((o) => o.id === selectedId);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return games;
-    return games.filter((g) => g.name.toLowerCase().includes(q));
-  }, [games, query]);
+    if (!q) return options;
+    return options.filter((o) => o.name.toLowerCase().includes(q));
+  }, [options, query]);
 
   function close() {
     setOpen(false);
     setQuery('');
   }
 
-  function choose(id: string) {
-    onSelect(id);
-    close();
-  }
+  const triggerLabel = selected?.name ?? (onClear ? clearLabel : placeholder);
 
   return (
     <>
       <Pressable
         onPress={() => setOpen(true)}
         style={[styles.trigger, { backgroundColor: theme.card, borderColor: theme.border }]}
-        accessibilityRole="button"
-        accessibilityLabel="Select game">
+        accessibilityRole="button">
         <ThemedText style={styles.triggerText} numberOfLines={1}>
-          {selected?.name ?? 'Select a game'}
+          {triggerLabel}
         </ThemedText>
         <IconSymbol name="chevron.down" size={22} color={theme.muted} />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-        {/* backdrop closes; the sheet absorbs taps so it stays open */}
         <Pressable style={styles.backdrop} onPress={close}>
           <Pressable
             style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.border }]}
@@ -66,7 +74,7 @@ export function GameSelect({ games, selectedId, onSelect }: Props) {
               <IconSymbol name="magnifyingglass" size={18} color={theme.muted} />
               <TextInput
                 style={[styles.search, { color: theme.text }]}
-                placeholder="Search games…"
+                placeholder={searchPlaceholder}
                 placeholderTextColor={theme.muted}
                 value={query}
                 onChangeText={setQuery}
@@ -76,17 +84,33 @@ export function GameSelect({ games, selectedId, onSelect }: Props) {
               />
             </View>
 
+            {onClear && (
+              <Pressable
+                onPress={() => {
+                  onClear();
+                  close();
+                }}
+                style={styles.option}>
+                <ThemedText style={{ color: selectedId == null ? theme.primary : theme.muted }}>
+                  {clearLabel}
+                </ThemedText>
+              </Pressable>
+            )}
+
             <FlatList
               data={filtered}
-              keyExtractor={(g) => g.id}
+              keyExtractor={(o) => o.id}
               keyboardShouldPersistTaps="handled"
               style={styles.list}
-              ListEmptyComponent={<ThemedText style={styles.empty}>No games found</ThemedText>}
+              ListEmptyComponent={<ThemedText style={styles.empty}>No matches</ThemedText>}
               renderItem={({ item }) => {
                 const isSelected = item.id === selectedId;
                 return (
                   <Pressable
-                    onPress={() => choose(item.id)}
+                    onPress={() => {
+                      onSelect(item.id);
+                      close();
+                    }}
                     style={[styles.option, isSelected && { backgroundColor: theme.stripe }]}>
                     <ThemedText style={{ color: isSelected ? theme.primary : theme.text }}>
                       {item.name}

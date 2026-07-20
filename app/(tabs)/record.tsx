@@ -4,20 +4,24 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View }
 import { AppHeader } from '@/components/AppHeader';
 import { Card } from '@/components/Card';
 import { DateField } from '@/components/DateField';
-import { GameSelect, type GameOption } from '@/components/GameSelect';
 import { PlayerPicker, type PlayerOption } from '@/components/PlayerPicker';
+import { SearchSelect } from '@/components/SearchSelect';
 import { ThemedText } from '@/components/ThemedText';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { MAX_CONTENT_WIDTH } from '@/constants/layout';
+import { useAuth } from '@/context/auth';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import {
   createMatch,
   createTeamMatch,
+  createTournament,
   getGames,
   getGroupMembers,
+  getTournaments,
   type GameRef,
+  type Tournament,
 } from '@/lib/api';
 
 type Entry = { player: PlayerOption; score: string; handicap: string };
@@ -30,22 +34,41 @@ const optionalNumeric = (s: string) => s.trim() === '' || Number.isFinite(Number
 export default function RecordScreen() {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
-  const { activeGroupId, loading: groupsLoading } = useGroup();
+  const { user } = useAuth();
+  const { activeGroupId, groups, loading: groupsLoading } = useGroup();
 
   const [games, setGames] = useState<GameRef[]>([]);
   const [members, setMembers] = useState<PlayerOption[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [gameId, setGameId] = useState<string | null>(null);
   const [date, setDate] = useState(() => new Date());
+  const [tournamentId, setTournamentId] = useState<string | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Msg | null>(null);
   const teamKey = useRef(0);
 
+  // create-tournament card
+  const [newName, setNewName] = useState('');
+  const [newGroupId, setNewGroupId] = useState<string | null>(activeGroupId);
+  const [creating, setCreating] = useState(false);
+  const [tourMsg, setTourMsg] = useState<Msg | null>(null);
+
+  const activeTournaments = useMemo(
+    () => tournaments.filter((t) => t.status === 'active'),
+    [tournaments],
+  );
+
+  const loadTournaments = async (groupId: string) => {
+    setTournaments(await getTournaments(groupId));
+  };
+
   useEffect(() => {
     if (groupsLoading) return;
+    setNewGroupId(activeGroupId);
     if (!activeGroupId) {
       setLoading(false);
       return;
@@ -53,10 +76,15 @@ export default function RecordScreen() {
     let active = true;
     setLoading(true);
     (async () => {
-      const [g, m] = await Promise.all([getGames(), getGroupMembers(activeGroupId)]);
+      const [g, m, t] = await Promise.all([
+        getGames(),
+        getGroupMembers(activeGroupId),
+        getTournaments(activeGroupId),
+      ]);
       if (!active) return;
       setGames(g);
       setMembers(m.map((x) => ({ id: x.id, name: x.name })));
+      setTournaments(t);
       resetForm();
       setLoading(false);
     })();
@@ -73,6 +101,24 @@ export default function RecordScreen() {
     setEntries([]);
     setTeams([]);
     setDate(new Date());
+    setTournamentId(null);
+  }
+
+  async function createNewTournament() {
+    const name = newName.trim();
+    if (!name || !newGroupId || !user) return;
+    setCreating(true);
+    setTourMsg(null);
+    const { error } = await createTournament(name, newGroupId, user.id);
+    setCreating(false);
+    if (error) {
+      setTourMsg({ type: 'error', text: error });
+      return;
+    }
+    setNewName('');
+    setTourMsg({ type: 'success', text: 'Tournament created.' });
+    // reflect it in the match-form selector if it belongs to the active group
+    if (newGroupId === activeGroupId) loadTournaments(activeGroupId);
   }
 
   function selectGame(id: string) {
@@ -150,6 +196,7 @@ export default function RecordScreen() {
           gameId,
           groupId: activeGroupId,
           date: iso,
+          tournamentId,
           teams: teams.map((t) => ({
             name: t.name.trim() || 'Team',
             score: Number(t.score),
@@ -160,6 +207,7 @@ export default function RecordScreen() {
           gameId,
           groupId: activeGroupId,
           date: iso,
+          tournamentId,
           players: entries.map((e) => ({
             player_id: e.player.id,
             score: Number(e.score),
@@ -193,14 +241,30 @@ export default function RecordScreen() {
           ) : (
             <>
               <ThemedText style={styles.label}>Game</ThemedText>
-              <GameSelect
-                games={games as GameOption[]}
+              <SearchSelect
+                options={games}
                 selectedId={gameId}
                 onSelect={selectGame}
+                placeholder="Select a game"
+                searchPlaceholder="Search games…"
               />
 
               <ThemedText style={styles.label}>Date played</ThemedText>
               <DateField value={date} onChange={setDate} />
+
+              {activeTournaments.length > 0 && (
+                <>
+                  <ThemedText style={styles.label}>Tournament (optional)</ThemedText>
+                  <SearchSelect
+                    options={activeTournaments.map((t) => ({ id: t.id, name: t.name }))}
+                    selectedId={tournamentId}
+                    onSelect={setTournamentId}
+                    onClear={() => setTournamentId(null)}
+                    clearLabel="None"
+                    searchPlaceholder="Search tournaments…"
+                  />
+                </>
+              )}
 
               {isTeam ? (
                 <>
@@ -320,6 +384,63 @@ export default function RecordScreen() {
             </>
           )}
         </Card>
+
+        {activeGroupId && (
+          <Card style={styles.newCard}>
+            <ThemedText type="subtitle" style={styles.title}>
+              Create a tournament
+            </ThemedText>
+            <ThemedText style={styles.hint}>
+              Group matches into a tournament, then attach matches to it when recording.
+            </ThemedText>
+
+            <ThemedText style={styles.label}>Name</ThemedText>
+            <TextInput
+              style={[styles.tourNameInput, { color: theme.text, borderColor: theme.border }]}
+              placeholder="e.g. Spring Championship"
+              placeholderTextColor={theme.muted}
+              value={newName}
+              onChangeText={setNewName}
+            />
+
+            {groups.length > 1 && (
+              <>
+                <ThemedText style={styles.label}>Group</ThemedText>
+                <SearchSelect
+                  options={groups}
+                  selectedId={newGroupId}
+                  onSelect={setNewGroupId}
+                  placeholder="Select a group"
+                  searchPlaceholder="Search groups…"
+                />
+              </>
+            )}
+
+            {tourMsg && (
+              <ThemedText
+                style={[styles.message, { color: tourMsg.type === 'error' ? '#e5484d' : theme.primary }]}>
+                {tourMsg.text}
+              </ThemedText>
+            )}
+
+            <Pressable
+              onPress={createNewTournament}
+              disabled={!newName.trim() || !newGroupId || creating}
+              style={[
+                styles.save,
+                { backgroundColor: theme.primary },
+                (!newName.trim() || !newGroupId || creating) && styles.saveDisabled,
+              ]}>
+              {creating ? (
+                <ActivityIndicator color={theme.headerText} />
+              ) : (
+                <ThemedText style={[styles.saveText, { color: theme.headerText }]}>
+                  Create tournament
+                </ThemedText>
+              )}
+            </Pressable>
+          </Card>
+        )}
       </ScrollView>
     </View>
   );
@@ -332,6 +453,15 @@ const styles = StyleSheet.create({
   loader: { marginVertical: 24 },
   label: { marginTop: 16, marginBottom: 6, fontWeight: '600' },
   hint: { opacity: 0.6, marginBottom: 10, fontSize: 13 },
+
+  newCard: { marginTop: 16 },
+  tourNameInput: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
 
   entryHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
   colLabel: { fontSize: 12, opacity: 0.6 },

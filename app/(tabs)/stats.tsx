@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { AppHeader } from '@/components/AppHeader';
 import { Card } from '@/components/Card';
 import { CompareModal, type ComparePlayer } from '@/components/CompareModal';
-import { GameSelect, type GameOption } from '@/components/GameSelect';
+import { SearchSelect, type SelectOption } from '@/components/SearchSelect';
 import { StatTable, type StatColumn, type StatRow } from '@/components/StatTable';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
@@ -41,7 +41,7 @@ export default function StatsScreen() {
   const { activeGroupId, loading: groupsLoading } = useGroup();
 
   const [allRows, setAllRows] = useState<StatsRow[]>([]);
-  const [games, setGames] = useState<GameOption[]>([]);
+  const [games, setGames] = useState<SelectOption[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export default function StatsScreen() {
       }
       setAllRows(data ?? []);
       const seen = new Set<string>();
-      const list: GameOption[] = [];
+      const list: SelectOption[] = [];
       for (const r of data ?? []) {
         if (!seen.has(r.game_id)) {
           seen.add(r.game_id);
@@ -167,7 +167,7 @@ export default function StatsScreen() {
       {showBody && (
         <>
           <View style={styles.controls}>
-            <GameSelect games={games} selectedId={selectedGameId} onSelect={setSelectedGameId} />
+            <SearchSelect options={games} selectedId={selectedGameId} onSelect={setSelectedGameId} placeholder="Select a game" searchPlaceholder="Search games…" />
             <View style={styles.viewRow}>
               {viewOptions.map((o) => {
                 const on = o.key === view;

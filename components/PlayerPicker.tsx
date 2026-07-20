@@ -15,8 +15,8 @@ type Props = {
 };
 
 /**
- * "Add player" button that opens a searchable sheet. Same pattern as
- * GameSelect; kept separate for now (could share a SearchSheet later).
+ * "Add player" button that opens a searchable sheet. Multi-add (adds one player
+ * per pick), so it stays separate from the single-select SearchSelect.
  */
 export function PlayerPicker({ players, onSelect }: Props) {
   const scheme = useColorScheme() ?? 'light';
