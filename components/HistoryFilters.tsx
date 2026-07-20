@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '@/components/Card';
@@ -42,6 +42,17 @@ type Props = {
 export function HistoryFilters({ filters, onChange, onReset, games, players }: Props) {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
+  const [expanded, setExpanded] = useState(false);
+
+  const summary = useMemo(() => {
+    const parts: string[] = [];
+    if (filters.gameId) parts.push(games.find((g) => g.id === filters.gameId)?.name ?? 'game');
+    if (filters.playerIds.length)
+      parts.push(`${filters.playerIds.length} player${filters.playerIds.length === 1 ? '' : 's'}`);
+    if (filters.dateOn) parts.push('date range');
+    parts.push(filters.sortDesc ? 'newest first' : 'oldest first');
+    return parts.join(' · ');
+  }, [filters, games]);
 
   const selectedPlayers = useMemo(
     () => filters.playerIds.map((id) => players.find((p) => p.id === id)).filter(Boolean) as PlayerOption[],
@@ -54,16 +65,26 @@ export function HistoryFilters({ filters, onChange, onReset, games, players }: P
 
   return (
     <Card style={styles.card}>
-      <View style={styles.headerRow}>
-        <ThemedText style={styles.title}>Filter &amp; sort</ThemedText>
+      <Pressable onPress={() => setExpanded((e) => !e)} style={styles.headerRow}>
+        <View style={styles.headerText}>
+          <ThemedText style={styles.title}>Filter &amp; sort</ThemedText>
+          {!expanded && (
+            <ThemedText style={styles.summary} numberOfLines={1}>
+              {summary}
+            </ThemedText>
+          )}
+        </View>
         {filtersActive(filters) && (
-          <Pressable onPress={onReset} hitSlop={8}>
+          <Pressable onPress={onReset} hitSlop={8} style={styles.clear}>
             <ThemedText type="link">Clear</ThemedText>
           </Pressable>
         )}
-      </View>
+        <IconSymbol name={expanded ? 'chevron.up' : 'chevron.down'} size={22} color={theme.muted} />
+      </Pressable>
 
-      <ThemedText style={styles.label}>Game</ThemedText>
+      {!expanded ? null : (
+        <>
+          <ThemedText style={styles.label}>Game</ThemedText>
       <SearchSelect
         options={games}
         selectedId={filters.gameId}
@@ -140,14 +161,19 @@ export function HistoryFilters({ filters, onChange, onReset, games, players }: P
             </ThemedText>
           </Pressable>
         ))}
-      </View>
+          </View>
+        </>
+      )}
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: { marginBottom: 12 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerText: { flex: 1 },
+  summary: { opacity: 0.6, fontSize: 13, marginTop: 2 },
+  clear: {},
   title: { fontWeight: '700', fontSize: 16 },
   label: { marginTop: 14, marginBottom: 6, fontWeight: '600' },
   labelInline: { fontWeight: '600' },

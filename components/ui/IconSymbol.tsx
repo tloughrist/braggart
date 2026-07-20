@@ -21,6 +21,7 @@ const MAPPING = {
   'chart.bar.fill': 'leaderboard',
   'line.3.horizontal': 'menu',
   'chevron.down': 'keyboard-arrow-down',
+  'chevron.up': 'keyboard-arrow-up',
   'magnifyingglass': 'search',
   'plus': 'add',
   'xmark': 'close',
