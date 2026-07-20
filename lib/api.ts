@@ -38,6 +38,32 @@ export type StatsRow = {
 export type MatchPlayerInput = { player_id: string; score: number; handicap?: number };
 export type MatchTeamInput = { name: string; score: number; player_ids: string[] };
 
+export type MatchParticipant = {
+  playerId: string;
+  name: string;
+  score: number | null;
+  handicap: number;
+  isWinner: boolean;
+  place: number | null;
+  teamId: string | null;
+};
+export type MatchTeamResult = {
+  teamId: string;
+  name: string;
+  score: number | null;
+  isWinner: boolean;
+};
+export type MatchSummary = {
+  id: string;
+  datePlayed: string | null;
+  ownerId: string | null;
+  gameId: string;
+  gameName: string;
+  teamBased: boolean;
+  participants: MatchParticipant[];
+  teams: MatchTeamResult[];
+};
+
 export type RankingModel = { model: string; label: string; has_uncertainty: boolean };
 export type RankingRow = {
   rank: number;
@@ -242,6 +268,66 @@ export async function createTeamMatch(input: {
     p_date: input.date,
     p_teams: input.teams,
   });
+  return { error: error?.message ?? null };
+}
+
+// ── match history ─────────────────────────────────────────────────────────
+export async function getMatches(groupId: string): Promise<MatchSummary[]> {
+  const { data } = await supabase
+    .from('matches')
+    .select(
+      `id, date_played, owner_id, game_id,
+       game:games ( name, team_based ),
+       player_matches ( player_id, score, handicap, is_winner, finishing_place, team_id, player:players ( display_name ) ),
+       team_matches ( team_id, score, is_winner, team:teams ( name ) )`,
+    )
+    .eq('group_id', groupId)
+    .eq('status', 'completed')
+    .order('date_played', { ascending: false, nullsFirst: false });
+
+  return (data ?? []).map((m: any) => {
+    const game = unwrapOne(m.game);
+    return {
+      id: m.id as string,
+      datePlayed: m.date_played as string | null,
+      ownerId: m.owner_id as string | null,
+      gameId: m.game_id as string,
+      gameName: game?.name ?? 'Game',
+      teamBased: !!game?.team_based,
+      participants: (m.player_matches ?? []).map((pm: any) => ({
+        playerId: pm.player_id as string,
+        name: playerName(unwrapOne(pm.player)),
+        score: pm.score as number | null,
+        handicap: (pm.handicap ?? 0) as number,
+        isWinner: !!pm.is_winner,
+        place: pm.finishing_place as number | null,
+        teamId: pm.team_id as string | null,
+      })),
+      teams: (m.team_matches ?? []).map((tm: any) => ({
+        teamId: tm.team_id as string,
+        name: unwrapOne(tm.team)?.name ?? 'Team',
+        score: tm.score as number | null,
+        isWinner: !!tm.is_winner,
+      })),
+    };
+  });
+}
+
+export async function updateMatch(input: {
+  matchId: string;
+  date: string;
+  players: MatchPlayerInput[];
+}): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('update_match', {
+    p_match_id: input.matchId,
+    p_date: input.date,
+    p_players: input.players,
+  });
+  return { error: error?.message ?? null };
+}
+
+export async function deleteMatch(matchId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('matches').delete().eq('id', matchId);
   return { error: error?.message ?? null };
 }
 

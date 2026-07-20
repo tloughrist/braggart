@@ -28,6 +28,9 @@ const MAPPING = {
   'person.2.fill': 'groups',
   'checkmark': 'check',
   'person.crop.circle.fill': 'account-circle',
+  'clock.arrow.circlepath': 'history',
+  'trash': 'delete',
+  'pencil': 'edit',
 } as IconMapping;
 
 /**
