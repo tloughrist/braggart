@@ -28,6 +28,7 @@ export type Profile = {
 export type StatsRow = {
   game_id: string;
   game_name: string;
+  player_id: string;
   display_name: string | null;
   matches: number;
   wins: number;
@@ -36,6 +37,29 @@ export type StatsRow = {
 };
 export type MatchPlayerInput = { player_id: string; score: number; handicap?: number };
 export type MatchTeamInput = { name: string; score: number; player_ids: string[] };
+
+export type RankingModel = { model: string; label: string; has_uncertainty: boolean };
+export type RankingRow = {
+  rank: number;
+  player_id: string;
+  display_name: string | null;
+  rating: number | string;
+  uncertainty: number | string | null;
+  details: Record<string, unknown>;
+};
+export type PlayerComparison = {
+  name_a: string | null;
+  rating_a: number | string;
+  rd_a: number | string;
+  name_b: string | null;
+  rating_b: number | string;
+  rd_b: number | string;
+  win_prob_a: number | string;
+  played_directly: boolean;
+  connection_depth: number | null;
+  shared_opponents: string[];
+  confidence: number | string;
+};
 
 // PostgREST returns a to-one embed as an object, but the client types it loose;
 // normalize to a single row either way.
@@ -153,7 +177,7 @@ export async function getGames(): Promise<GameRef[]> {
 export async function getGroupStats(groupId: string): Promise<Result<StatsRow[]>> {
   const { data, error } = await supabase
     .from('game_player_stats')
-    .select('game_id, game_name, display_name, matches, wins, win_rate, avg_point_deviation')
+    .select('game_id, game_name, player_id, display_name, matches, wins, win_rate, avg_point_deviation')
     .eq('group_id', groupId)
     .order('game_name', { ascending: true })
     .order('wins', { ascending: false })
@@ -219,4 +243,41 @@ export async function createTeamMatch(input: {
     p_teams: input.teams,
   });
   return { error: error?.message ?? null };
+}
+
+// ── rankings ────────────────────────────────────────────────────────────────
+export async function getRankingModels(): Promise<RankingModel[]> {
+  const { data } = await supabase.rpc('ranking_models');
+  return (data ?? []) as RankingModel[];
+}
+
+export async function getRankings(
+  groupId: string,
+  gameId: string,
+  model: string,
+): Promise<RankingRow[]> {
+  const { data } = await supabase.rpc('rankings', {
+    p_group: groupId,
+    p_game: gameId,
+    p_model: model,
+  });
+  return (data ?? []) as RankingRow[];
+}
+
+/** Networked comparison of two players (rating gap, win probability, connectivity). */
+export async function comparePlayers(
+  groupId: string,
+  gameId: string,
+  playerA: string,
+  playerB: string,
+): Promise<Result<PlayerComparison>> {
+  const { data, error } = await supabase.rpc('compare_players', {
+    p_group: groupId,
+    p_game: gameId,
+    p_a: playerA,
+    p_b: playerB,
+  });
+  if (error) return { data: null, error: error.message };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { data: (row ?? null) as PlayerComparison, error: null };
 }
