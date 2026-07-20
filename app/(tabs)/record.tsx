@@ -63,7 +63,6 @@ export default function RecordScreen() {
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeGroupId, groupsLoading]);
 
   const selectedGame = games.find((g) => g.id === gameId);

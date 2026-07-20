@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Typecheck and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+
+  database:
+    name: Database tests (pgTAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Start the local stack (migrations applied), then reset to apply the
+      # seed fixtures the tests rely on, then run the pgTAP suite.
+      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,pooler,mailpit,realtime,storage-api
+      - run: supabase db reset
+      - run: supabase test db

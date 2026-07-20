@@ -1,5 +1,7 @@
 # Braggart
 
+[![CI](https://github.com/tloughrist/braggart/actions/workflows/ci.yml/badge.svg)](https://github.com/tloughrist/braggart/actions/workflows/ci.yml)
+
 Braggart is a cross-platform mobile app for tracking tabletop game statistics
 within a group of friends, and for turning that match history into meaningful
 player rankings, including principled comparisons between players who have never
@@ -120,17 +122,20 @@ and staying in one datastore avoids the operational cost of syncing two.
   touching the UI.
 - **Infrastructure as code.** Hosting is defined with AWS CDK rather than console
   clicks, so the environment is reproducible and reviewable.
+- **Tested where it matters.** The backend logic (rating math, winner and
+  placement computation, the stats view, and the RLS/ownership guards) is covered
+  by pgTAP tests run in CI, encoding behavior like "a handicap can flip the
+  winner" and "a non-member cannot read a group's rankings."
 
 ## Project status
 
 - **Built and functional**: authentication with session handling, groups and
   membership, match recording (individual and team, with handicaps and dates),
-  group-scoped per-game leaderboards, profiles, searchable pickers, and a
-  mobile-first responsive UI, all behind row-level security and the `lib/api.ts`
-  data-access layer.
-- **Implemented and validated in SQL, not yet surfaced in the app UI**: the
-  ranking engine (Elo, Glicko-2, graph connectivity, and a pluggable model
-  dispatcher). See `supabase/prototypes/networked-rankings.sql`.
+  match history with detail/edit/delete, group-scoped per-game leaderboards, the
+  ranking engine in-app (Elo and Glicko-2 leaderboards plus a networked
+  compare-players view), profiles, searchable pickers, and a mobile-first
+  responsive UI, all behind row-level security and the `lib/api.ts` data-access
+  layer, with pgTAP tests in CI.
 - **In progress**: AWS web deployment. The CDK stack synthesizes cleanly and is
   awaiting AWS account activation.
 - **Planned**: profile-picture uploads, friendships, trophies, session notes, and
