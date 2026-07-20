@@ -29,6 +29,6 @@ jobs:
           version: latest
       # Start the local stack (migrations applied), then reset to apply the
       # seed fixtures the tests rely on, then run the pgTAP suite.
-      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,pooler,mailpit,realtime,storage-api
+      - run: supabase start
       - run: supabase db reset
       - run: supabase test db
