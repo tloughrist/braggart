@@ -11,10 +11,10 @@ It is built as a single Expo / React Native codebase targeting iOS, Android, and
 web, on a Postgres backend with database-enforced authorization, SQL-computed
 statistics, and a rating-plus-graph engine for the rankings.
 
-> Status: personal portfolio project. The core app (authentication, groups,
-> match recording, group-scoped statistics, profiles) is functional. The ranking
-> engine is implemented and validated in SQL. Web hosting is defined as
-> infrastructure-as-code on AWS and pending account activation. See
+> Status: personal portfolio project. The app — authentication, groups, match
+> recording and history, group-scoped statistics, in-app rankings, and profiles —
+> is functional and covered by database tests in CI. Web hosting is defined as
+> infrastructure-as-code on AWS and is pending account activation. See
 > [Project status](#project-status).
 
 ## Screenshots
@@ -32,6 +32,12 @@ Sign-in (light theme):
 - **Group-scoped leaderboards** — per-game statistics (matches played, wins, win
   rate, average point deviation from the winner) scoped to the currently active
   group.
+- **Rankings and head-to-head comparison** — switch a game's leaderboard between
+  raw stats, Elo, and Glicko-2, and compare any two players (including ones who
+  never met) with an uncertainty-aware win probability and a confidence based on
+  how connected they are.
+- **Match history** — browse past matches and open any one for full results; as
+  the match owner, edit its scores or delete it.
 - **Groups** — create groups, manage members, and switch the active group; all
   recording and stats follow it.
 - **Profiles** — editable display name, identity colors, password, and a
