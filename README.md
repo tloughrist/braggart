@@ -11,11 +11,12 @@ It is built as a single Expo / React Native codebase targeting iOS, Android, and
 web, on a Postgres backend with database-enforced authorization, SQL-computed
 statistics, and a rating-plus-graph engine for the rankings.
 
-> Status: personal portfolio project. The app — authentication, groups, match
-> recording and history, group-scoped statistics, in-app rankings, and profiles —
+> Status: personal portfolio project. The app — authentication, groups with
+> owner/admin/member roles, match recording and history, tournaments,
+> group-scoped statistics, in-app rankings, and profiles with avatar uploads —
 > is functional and covered by database tests in CI. Web hosting is defined as
 > infrastructure-as-code on AWS and is pending account activation. See
-> [Project status](#project-status).
+> [Project status](#project-status) and the [development roadmap](docs/roadmap.html).
 
 ## Screenshots
 
@@ -36,12 +37,18 @@ Sign-in (light theme):
   raw stats, Elo, and Glicko-2, and compare any two players (including ones who
   never met) with an uncertainty-aware win probability and a confidence based on
   how connected they are.
-- **Match history** — browse past matches and open any one for full results; as
-  the match owner, edit its scores or delete it.
-- **Groups** — create groups, manage members, and switch the active group; all
-  recording and stats follow it.
-- **Profiles** — editable display name, identity colors, password, and a
-  personal win/loss summary computed from match history.
+- **Match history** — browse, filter (by game, date range, or players), and sort
+  past matches, then open any one for full results. The match's owner or a group
+  admin can edit its scores or delete it.
+- **Tournaments** — group a set of matches under a named tournament, follow live
+  standings, end it when it is done, and delete it (optionally keeping its
+  matches as regular ones).
+- **Groups and roles** — create groups and switch the active group; all recording
+  and stats follow it. Membership has owner, admin, and member roles: any member
+  can record matches, while owners and admins also manage members, promote or
+  demote admins, and edit or delete the group's matches and tournaments.
+- **Profiles** — editable display name, uploadable avatar image, identity colors,
+  password, and a personal win/loss summary computed from match history.
 - **Fast entry** — type-to-filter search for games and players, so a large
   library stays usable on a phone.
 - **Mobile-first and responsive** — one layout that adapts from a narrow phone to
@@ -136,16 +143,22 @@ and staying in one datastore avoids the operational cost of syncing two.
 ## Project status
 
 - **Built and functional**: authentication with session handling, groups and
-  membership, match recording (individual and team, with handicaps and dates),
-  match history with detail/edit/delete, group-scoped per-game leaderboards, the
-  ranking engine in-app (Elo and Glicko-2 leaderboards plus a networked
-  compare-players view), profiles, searchable pickers, and a mobile-first
-  responsive UI, all behind row-level security and the `lib/api.ts` data-access
-  layer, with pgTAP tests in CI.
+  membership with owner/admin/member roles, match recording (individual and team,
+  with handicaps and dates), match history with detail/edit/delete plus filtering
+  and sorting, tournaments (grouping matches, standings, end and delete),
+  group-scoped per-game leaderboards, the ranking engine in-app (Elo and Glicko-2
+  leaderboards plus a networked compare-players view), profiles with avatar image
+  upload, searchable pickers, and a mobile-first responsive UI, all behind
+  row-level security and the `lib/api.ts` data-access layer, with pgTAP tests in
+  CI.
 - **In progress**: AWS web deployment. The CDK stack synthesizes cleanly and is
   awaiting AWS account activation.
-- **Planned**: profile-picture uploads, friendships, trophies, session notes, and
-  a shared game library. The schema already anticipates these.
+- **Planned**: a recognition layer (trophy and award UI over the already-modeled
+  tables, with default art assets), the social graph (friendships, persistent
+  teams, session notes, mentions), structured tournaments (brackets, seeding,
+  rounds), and convention-scale onboarding (self-service join codes and
+  large-group support). The schema already anticipates much of this. See the
+  [development roadmap](docs/roadmap.html) for the phased plan.
 
 ## Data model
 
@@ -159,10 +172,11 @@ as-built structure. A few deliberate modeling choices:
 - Game variants are modeled as a game with a `parent_game_id` self-reference
   rather than a separate table.
 - Lifecycle and soft-delete use typed enums (`entity_status`, `match_status`,
-  `friendship_status`, `membership_status`) instead of free-text state columns.
+  `tournament_status`, `friendship_status`, `membership_status`) instead of
+  free-text state columns.
 
 <details>
-<summary>Entity-relationship diagram (18 tables)</summary>
+<summary>Entity-relationship diagram (19 tables)</summary>
 
 ```mermaid
 classDiagram
@@ -232,7 +246,7 @@ classDiagram
 		+uuid owner_id
 		+uuid group_id
 		+text name
-		+entity_status status
+		+tournament_status status
 	}
 	class matches{
 		+uuid id
@@ -304,6 +318,11 @@ classDiagram
 		+uuid game_id
 		+uuid trophy_id
 	}
+	class tournament_trophies{
+		+uuid id
+		+uuid tournament_id
+		+uuid trophy_id
+	}
 
 	players "1" --> "*" assets : owner
 	players "1" --> "1" assets : avatar
@@ -342,6 +361,8 @@ classDiagram
 	trophies "1" --> "*" player_trophies
 	games "1" --> "*" game_trophies
 	trophies "1" --> "*" game_trophies
+	tournaments "1" --> "*" tournament_trophies
+	trophies "1" --> "*" tournament_trophies
 ```
 
 </details>

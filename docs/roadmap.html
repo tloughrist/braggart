@@ -1,0 +1,461 @@
+<title>Braggart Development Roadmap</title>
+<style>
+  :root {
+    /* Braggart brand tokens (from constants/Colors.ts) */
+    --bg: #F4E6CF;          /* cream page */
+    --card: #FAF1E1;        /* parchment surface */
+    --ink: #241C17;
+    --muted: #7A5E4A;
+    --border: #D9C3A5;
+    --stripe: #ECEAE6;
+    --primary: #9B2D2D;     /* brick */
+    --accent: #D2604F;      /* coral */
+    --accent-soft: #F3D8CD;
+    --good: #4E7A4B;        /* semantic: shipped */
+    --warn: #B9822A;        /* semantic: in progress */
+    --band: #9B2D2D;
+    --band-ink: #F6EAD3;
+    --band-muted: #E7B7A9;
+    --pip: #FAF1E1;
+    --shadow: 0 1px 0 rgba(36,28,23,.04), 0 10px 30px -18px rgba(36,28,23,.45);
+
+    --font-display: "Trebuchet MS", "Verdana", system-ui, sans-serif;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    --measure: 62ch;
+    --page: 900px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1C1512;
+      --card: #2A211C;
+      --ink: #F1E5D4;
+      --muted: #B79E86;
+      --border: #3A2F28;
+      --stripe: #241D18;
+      --primary: #B23A3A;
+      --accent: #E07A67;
+      --accent-soft: #3A211C;
+      --good: #86B06F;
+      --warn: #D9A24A;
+      --band: #431B18;
+      --band-ink: #F1E5D4;
+      --band-muted: #D89A8A;
+      --pip: #F1E5D4;
+      --shadow: 0 1px 0 rgba(0,0,0,.2), 0 14px 34px -18px rgba(0,0,0,.7);
+    }
+  }
+  /* explicit theme toggles win over the media query, both directions */
+  :root[data-theme="light"] {
+    --bg: #F4E6CF; --card: #FAF1E1; --ink: #241C17; --muted: #7A5E4A;
+    --border: #D9C3A5; --stripe: #ECEAE6; --primary: #9B2D2D; --accent: #D2604F;
+    --accent-soft: #F3D8CD; --good: #4E7A4B; --warn: #B9822A; --band: #9B2D2D;
+    --band-ink: #F6EAD3; --band-muted: #E7B7A9; --pip: #FAF1E1;
+    --shadow: 0 1px 0 rgba(36,28,23,.04), 0 10px 30px -18px rgba(36,28,23,.45);
+  }
+  :root[data-theme="dark"] {
+    --bg: #1C1512; --card: #2A211C; --ink: #F1E5D4; --muted: #B79E86;
+    --border: #3A2F28; --stripe: #241D18; --primary: #B23A3A; --accent: #E07A67;
+    --accent-soft: #3A211C; --good: #86B06F; --warn: #D9A24A; --band: #431B18;
+    --band-ink: #F1E5D4; --band-muted: #D89A8A; --pip: #F1E5D4;
+    --shadow: 0 1px 0 rgba(0,0,0,.2), 0 14px 34px -18px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .page {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .wrap { max-width: var(--page); margin: 0 auto; padding: 0 24px; }
+
+  /* ---- header band: cream content over a red field (app motif) ---- */
+  .band {
+    background: var(--band);
+    color: var(--band-ink);
+    border-bottom: 3px solid rgba(0,0,0,.12);
+  }
+  .band .wrap { padding-top: 34px; padding-bottom: 40px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: .01em;
+    color: var(--band-ink);
+  }
+  .eyebrow {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .16em;
+    font-weight: 700; color: var(--band-muted);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 5.4vw, 3.2rem);
+    line-height: 1.04;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 18px 0 10px;
+    color: var(--band-ink);
+    max-width: 18ch;
+  }
+  .lede {
+    max-width: var(--measure);
+    color: var(--band-muted);
+    font-size: 1.05rem;
+    margin: 0;
+  }
+  .frames { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+  .frame {
+    display: flex; flex-direction: column; gap: 2px;
+    background: rgba(0,0,0,.14);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    padding: 12px 16px;
+    min-width: 220px; flex: 1 1 240px;
+  }
+  .frame .k { font-size: .68rem; text-transform: uppercase; letter-spacing: .14em; color: var(--band-muted); font-weight: 700; }
+  .frame .v { font-size: 1rem; font-weight: 600; color: var(--band-ink); }
+
+  /* ---- dice: the phase markers and the logo mark ---- */
+  .die {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px; padding: 15%;
+    aspect-ratio: 1;
+    border-radius: 24%;
+    background: var(--accent);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.16), inset 0 2px 0 rgba(255,255,255,.18);
+  }
+  .die .pip { border-radius: 50%; background: var(--pip); align-self: center; justify-self: center; width: 74%; aspect-ratio: 1; }
+  .logo-die { width: 10px; padding: 10%; gap: 1px; flex: none; }
+  .logo-die .pip { width: 84%; }
+
+  /* ---- section scaffolding ---- */
+  section { padding: 52px 0; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+  .sec-head h2 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 1.5rem; margin: 0; letter-spacing: -.005em;
+  }
+  .sec-head .note { color: var(--muted); font-size: .95rem; }
+
+  /* ---- "where it stands" striped checklist (stat-table motif) ---- */
+  .status-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .status-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+  }
+  .tag {
+    font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+    padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  }
+  .tag.good { color: #fff; background: var(--good); }
+  .tag.warn { color: #fff; background: var(--warn); }
+  .tag.ghost { color: var(--muted); border: 1px solid var(--border); background: transparent; }
+  .tag.path { color: #fff; background: var(--accent); }
+  .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+  }
+  .grid .item {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 11px 20px; font-size: .95rem;
+    border-top: 1px solid transparent;
+  }
+  .grid .item:nth-child(4n+1), .grid .item:nth-child(4n) { background: var(--stripe); }
+  .check { color: var(--good); font-weight: 800; flex: none; margin-top: -1px; }
+  .item b { font-weight: 650; }
+  .inprogress {
+    display: flex; gap: 12px; align-items: flex-start;
+    margin-top: 16px; padding: 14px 18px;
+    background: var(--accent-soft); border: 1px solid var(--border);
+    border-radius: 12px; font-size: .95rem;
+  }
+
+  /* ---- near-term path callout ---- */
+  .pathline {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 30px;
+    box-shadow: var(--shadow);
+  }
+  .pathline .mini { display: flex; align-items: center; gap: 8px; }
+  .pathline .die { width: 26px; }
+  .pathline .arrow { color: var(--accent); font-weight: 800; }
+  .pathline p { margin: 0; font-size: .95rem; color: var(--muted); }
+  .pathline strong { color: var(--ink); }
+
+  /* ---- phases ---- */
+  .phases { display: flex; flex-direction: column; gap: 18px; }
+  .phase {
+    display: grid; grid-template-columns: 64px 1fr; gap: 20px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 22px 24px; box-shadow: var(--shadow);
+    position: relative;
+  }
+  .phase.near { border-left: 4px solid var(--accent); }
+  .phase .marker { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .phase .die { width: 52px; }
+  .phase .marker .num { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); }
+  .phase-body h3 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 1.22rem; margin: 2px 0 4px; letter-spacing: -.005em;
+  }
+  .phase-body .goal { margin: 0 0 12px; color: var(--muted); font-size: .98rem; max-width: var(--measure); }
+  .phase ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+  .phase li { position: relative; padding-left: 18px; font-size: .95rem; }
+  .phase li::before {
+    content: ""; position: absolute; left: 2px; top: .58em;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  }
+  .phase .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+  /* ---- footer ---- */
+  footer { border-top: 1px solid var(--border); }
+  footer .wrap { padding: 26px 24px 48px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  footer p { margin: 0; color: var(--muted); font-size: .88rem; }
+  footer .mono { font-family: var(--font-mono); }
+  a { color: var(--accent); text-underline-offset: 2px; }
+
+  @media (max-width: 620px) {
+    .grid { grid-template-columns: 1fr; }
+    .grid .item:nth-child(4n+1), .grid .item:nth-child(4n) { background: transparent; }
+    .grid .item:nth-child(odd) { background: var(--stripe); }
+    .phase { grid-template-columns: 1fr; }
+    .phase .marker { flex-direction: row; justify-content: flex-start; }
+    .phase .die { width: 40px; }
+  }
+
+  .phase { opacity: 0; transform: translateY(10px); animation: rise .5s ease forwards; }
+  .phase:nth-child(1){animation-delay:.04s}.phase:nth-child(2){animation-delay:.10s}
+  .phase:nth-child(3){animation-delay:.16s}.phase:nth-child(4){animation-delay:.22s}
+  .phase:nth-child(5){animation-delay:.28s}.phase:nth-child(6){animation-delay:.34s}
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .phase { animation: none; opacity: 1; transform: none; }
+  }
+</style>
+
+<div class="page">
+  <header class="band">
+    <div class="wrap">
+      <div class="brand">
+        <div class="die logo-die" aria-hidden="true">
+          <span class="pip" style="grid-area:1/1"></span>
+          <span class="pip" style="grid-area:1/3"></span>
+          <span class="pip" style="grid-area:2/1"></span>
+          <span class="pip" style="grid-area:2/3"></span>
+          <span class="pip" style="grid-area:3/1"></span>
+          <span class="pip" style="grid-area:3/3"></span>
+        </div>
+        <span class="wordmark">Braggart</span>
+      </div>
+
+      <p class="eyebrow" style="margin:26px 0 0">Product roadmap &middot; July 2026</p>
+      <h1>From match tracker to convention companion</h1>
+      <p class="lede">
+        Braggart records tabletop games and turns the history into meaningful player
+        rankings. The core app is built and tested in CI. Here is where it stands and
+        the phases ahead.
+      </p>
+
+      <div class="frames">
+        <div class="frame">
+          <span class="k">North star</span>
+          <span class="v">A board-game convention as one group, every attendee a player</span>
+        </div>
+        <div class="frame">
+          <span class="k">Near-term goal</span>
+          <span class="v">A live, polished portfolio demo</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- WHERE IT STANDS -->
+    <section id="today">
+      <div class="sec-head">
+        <h2>Where it stands today</h2>
+        <span class="note">Built, behind row-level security, and covered by pgTAP tests in CI.</span>
+      </div>
+
+      <div class="status-card">
+        <div class="status-head">
+          <span class="tag good">Shipped</span>
+          <strong>A robust, viable app</strong>
+        </div>
+        <div class="grid">
+          <div class="item"><span class="check">&#10003;</span><span>Authentication with session handling and profiles</span></div>
+          <div class="item"><span class="check">&#10003;</span><span>Groups with <b>owner / admin / member</b> roles</span></div>
+          <div class="item"><span class="check">&#10003;</span><span>Match recording &mdash; individual and team, with handicaps and dates</span></div>
+          <div class="item"><span class="check">&#10003;</span><span>History with <b>filtering</b> (game, date, players) and <b>sorting</b></span></div>
+          <div class="item"><span class="check">&#10003;</span><span>Tournaments &mdash; grouped matches, standings, end and delete</span></div>
+          <div class="item"><span class="check">&#10003;</span><span>Group-scoped per-game leaderboards</span></div>
+          <div class="item"><span class="check">&#10003;</span><span><b>Elo</b> and <b>Glicko-2</b> rankings, computed in Postgres</span></div>
+          <div class="item"><span class="check">&#10003;</span><span>Networked <b>compare-players</b> across shared opponents</span></div>
+          <div class="item"><span class="check">&#10003;</span><span>Avatar image upload and searchable pickers</span></div>
+          <div class="item"><span class="check">&#10003;</span><span>Mobile-first responsive UI; single Expo codebase</span></div>
+        </div>
+      </div>
+
+      <div class="inprogress">
+        <span class="tag warn">In progress</span>
+        <span><b>AWS web deployment.</b> The CDK stack (private S3 behind CloudFront) synthesizes
+        cleanly and is awaiting account activation. The 19-table schema already anticipates much of what follows.</span>
+      </div>
+    </section>
+
+    <!-- PHASES -->
+    <section id="phases">
+      <div class="sec-head">
+        <h2>The phases ahead</h2>
+        <span class="note">Two forces shape the order: the convention north star and default art assets in production now.</span>
+      </div>
+
+      <div class="pathline">
+        <div class="mini">
+          <span class="die" aria-hidden="true"><span class="pip" style="grid-area:2/2"></span></span>
+          <span class="arrow">&rarr;</span>
+          <span class="die" aria-hidden="true"><span class="pip" style="grid-area:1/1"></span><span class="pip" style="grid-area:2/2"></span><span class="pip" style="grid-area:3/3"></span></span>
+          <span class="arrow">&rarr;</span>
+          <span class="die" aria-hidden="true"><span class="pip" style="grid-area:1/1"></span><span class="pip" style="grid-area:1/3"></span><span class="pip" style="grid-area:2/1"></span><span class="pip" style="grid-area:2/3"></span><span class="pip" style="grid-area:3/1"></span><span class="pip" style="grid-area:3/3"></span></span>
+        </div>
+        <p><strong>Near-term path for the portfolio demo:</strong> ship it, cash in the art with a recognition
+        layer, then add the real-time flourishes that demo best &mdash; deferring the operational onboarding
+        and deeper social work until a real convention is on the calendar.</p>
+      </div>
+
+      <div class="phases">
+
+        <!-- 1 -->
+        <article class="phase near">
+          <div class="marker">
+            <div class="die" aria-hidden="true"><span class="pip" style="grid-area:2/2"></span></div>
+            <span class="num">Phase 1</span>
+          </div>
+          <div class="phase-body">
+            <h3>Ship it &amp; harden</h3>
+            <p class="goal">Get it live on AWS and make it trustworthy. Foundation before features &mdash; a portfolio needs a live URL and a convention needs reliability.</p>
+            <ul>
+              <li>AWS deployment (CDK stack is ready), plus observability, backups, and error monitoring</li>
+              <li>A final mobile-responsiveness pass</li>
+            </ul>
+            <div class="tags"><span class="tag path">Near-term path</span><span class="tag ghost">Foundation</span></div>
+          </div>
+        </article>
+
+        <!-- 2 -->
+        <article class="phase">
+          <div class="marker">
+            <div class="die" aria-hidden="true"><span class="pip" style="grid-area:1/1"></span><span class="pip" style="grid-area:3/3"></span></div>
+            <span class="num">Phase 2</span>
+          </div>
+          <div class="phase-body">
+            <h3>Onboarding &amp; scale</h3>
+            <p class="goal">Make &ldquo;a convention is one group&rdquo; actually work: hundreds of strangers joining in minutes, on bad venue wifi.</p>
+            <ul>
+              <li>Self-service join via group <b>join code / QR</b> and self-registration</li>
+              <li>A <b>staff / moderator</b> tier above admin for organizers</li>
+              <li>Searchable, paginated member lists and leaderboards</li>
+              <li>Offline-tolerant match capture with sync</li>
+            </ul>
+            <div class="tags"><span class="tag ghost">Convention-critical</span></div>
+          </div>
+        </article>
+
+        <!-- 3 -->
+        <article class="phase near">
+          <div class="marker">
+            <div class="die" aria-hidden="true"><span class="pip" style="grid-area:1/1"></span><span class="pip" style="grid-area:2/2"></span><span class="pip" style="grid-area:3/3"></span></div>
+            <span class="num">Phase 3</span>
+          </div>
+          <div class="phase-body">
+            <h3>Recognition layer</h3>
+            <p class="goal">Cash in the artist's assets. Highest delight-per-effort on the board, and time-sensitive to the art landing now.</p>
+            <ul>
+              <li>Trophy and award UI &mdash; already modeled and seeded, no interface yet</li>
+              <li>Default asset packs (avatars, trophies, awards) wired in as the artist delivers</li>
+              <li>An awards-ceremony / end-of-event leaderboard &mdash; the celebratory payoff</li>
+            </ul>
+            <div class="tags"><span class="tag path">Near-term path</span><span class="tag ghost">Art-timed</span></div>
+          </div>
+        </article>
+
+        <!-- 4 -->
+        <article class="phase">
+          <div class="marker">
+            <div class="die" aria-hidden="true"><span class="pip" style="grid-area:1/1"></span><span class="pip" style="grid-area:1/3"></span><span class="pip" style="grid-area:3/1"></span><span class="pip" style="grid-area:3/3"></span></div>
+            <span class="num">Phase 4</span>
+          </div>
+          <div class="phase-body">
+            <h3>Social graph</h3>
+            <p class="goal">Connect players directly &mdash; the backlog's &ldquo;big one.&rdquo; Friendships also give the ranking graph real edges instead of group-inferred ones.</p>
+            <ul>
+              <li><b>Friendships</b> with a request / accept flow</li>
+              <li>Persistent <b>teams</b>, session <b>notes</b>, and <b>mentions</b></li>
+            </ul>
+            <div class="tags"><span class="tag ghost">Enriches rankings</span></div>
+          </div>
+        </article>
+
+        <!-- 5 -->
+        <article class="phase">
+          <div class="marker">
+            <div class="die" aria-hidden="true"><span class="pip" style="grid-area:1/1"></span><span class="pip" style="grid-area:1/3"></span><span class="pip" style="grid-area:2/2"></span><span class="pip" style="grid-area:3/1"></span><span class="pip" style="grid-area:3/3"></span></div>
+            <span class="num">Phase 5</span>
+          </div>
+          <div class="phase-body">
+            <h3>Competitive structure</h3>
+            <p class="goal">Organized play on top of the existing tournament base &mdash; not just a name, but who plays whom.</p>
+            <ul>
+              <li>Structured tournaments: <b>brackets, rounds, seeding, matchups</b></li>
+              <li>Live standings and printable brackets</li>
+            </ul>
+            <div class="tags"><span class="tag ghost">Builds on tournaments</span></div>
+          </div>
+        </article>
+
+        <!-- 6 -->
+        <article class="phase near">
+          <div class="marker">
+            <div class="die" aria-hidden="true"><span class="pip" style="grid-area:1/1"></span><span class="pip" style="grid-area:1/3"></span><span class="pip" style="grid-area:2/1"></span><span class="pip" style="grid-area:2/3"></span><span class="pip" style="grid-area:3/1"></span><span class="pip" style="grid-area:3/3"></span></div>
+            <span class="num">Phase 6</span>
+          </div>
+          <div class="phase-body">
+            <h3>Discovery &amp; real-time</h3>
+            <p class="goal">Keep attendees in the moment &mdash; and the most demo-friendly layer for a live portfolio piece.</p>
+            <ul>
+              <li>A &ldquo;looking for players&rdquo; / open-table board and a convention game library</li>
+              <li>Push notifications (match invites, &ldquo;your round is up&rdquo;)</li>
+              <li>Supabase-realtime live leaderboards</li>
+            </ul>
+            <div class="tags"><span class="tag path">Near-term path</span><span class="tag ghost">Demo dazzle</span></div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <p><strong style="color:var(--ink)">Braggart</strong> &mdash; a cross-platform tabletop statistics app.</p>
+      <p class="mono">Roadmap as of 2026-07-21 &middot; near-term goal: live portfolio demo</p>
+    </div>
+  </footer>
+</div>
