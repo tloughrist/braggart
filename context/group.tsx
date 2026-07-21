@@ -17,6 +17,8 @@ type GroupContextValue = {
   groups: Group[];
   activeGroup: Group | null;
   activeGroupId: string | null;
+  /** True if the user is an owner or admin of the active group. */
+  isActiveGroupAdmin: boolean;
   setActiveGroupId: (id: string) => void;
   loading: boolean;
   /** Re-fetch the user's groups (call after creating one). */
@@ -58,10 +60,19 @@ export function GroupProvider({ children }: PropsWithChildren) {
   }, []);
 
   const activeGroup = groups.find((g) => g.id === activeGroupId) ?? null;
+  const isActiveGroupAdmin = activeGroup?.role === 'owner' || activeGroup?.role === 'admin';
 
   return (
     <GroupContext.Provider
-      value={{ groups, activeGroup, activeGroupId, setActiveGroupId, loading, refresh }}>
+      value={{
+        groups,
+        activeGroup,
+        activeGroupId,
+        isActiveGroupAdmin,
+        setActiveGroupId,
+        loading,
+        refresh,
+      }}>
       {children}
     </GroupContext.Provider>
   );

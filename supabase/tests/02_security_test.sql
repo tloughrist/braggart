@@ -16,12 +16,12 @@ select throws_ok(
          {"player_id":"66666666-6666-6666-6666-666666666666","score":2}]'::jsonb) $$,
   'not a member of that group');
 
--- Katie is a group member but does not own Tim's match b1.
+-- Katie is a plain member (not owner, not admin) of Tim's group.
 set local request.jwt.claims to '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
 select throws_ok(
   $$ select update_match('b0000000-0000-0000-0000-0000000000b1', now(),
        '[{"player_id":"33333333-3333-3333-3333-333333333333","score":1}]'::jsonb) $$,
-  'only the match owner can edit it');
+  'only the match owner or a group admin can edit it');
 
 -- Non-owner delete is filtered by RLS (match remains).
 delete from matches where id = 'b0000000-0000-0000-0000-0000000000b1';

@@ -61,7 +61,7 @@ export default function HistoryScreen() {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
   const { user } = useAuth();
-  const { activeGroupId, loading: groupsLoading } = useGroup();
+  const { activeGroupId, isActiveGroupAdmin, loading: groupsLoading } = useGroup();
 
   const [matches, setMatches] = useState<MatchSummary[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -182,7 +182,7 @@ export default function HistoryScreen() {
           {/* Tournaments */}
           {shownTournaments.map((t) => {
             const tMatches = byTournament.get(t.id) ?? [];
-            const isOwner = !!t.ownerId && t.ownerId === user?.id;
+            const canManage = (!!t.ownerId && t.ownerId === user?.id) || isActiveGroupAdmin;
             return (
               <Card key={t.id} style={styles.tourCard}>
                 <Pressable onPress={() => setSelectedTournament(t)} style={styles.tourHeader}>
@@ -194,7 +194,7 @@ export default function HistoryScreen() {
                       {t.status} · {tMatches.length} {tMatches.length === 1 ? 'match' : 'matches'}
                     </ThemedText>
                   </View>
-                  {isOwner && t.status === 'active' && (
+                  {canManage && t.status === 'active' && (
                     <Pressable
                       onPress={() => endTour(t.id)}
                       hitSlop={8}
@@ -243,6 +243,7 @@ export default function HistoryScreen() {
       <MatchDetailModal
         match={selectedMatch}
         currentUserId={user?.id}
+        isGroupAdmin={isActiveGroupAdmin}
         onClose={() => setSelectedMatch(null)}
         onChanged={() => {
           setSelectedMatch(null);
@@ -253,6 +254,7 @@ export default function HistoryScreen() {
         tournament={selectedTournament}
         matches={selectedTournament ? byTournament.get(selectedTournament.id) ?? [] : []}
         currentUserId={user?.id}
+        isGroupAdmin={isActiveGroupAdmin}
         onClose={() => setSelectedTournament(null)}
         onChanged={() => {
           setSelectedTournament(null);

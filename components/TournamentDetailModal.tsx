@@ -16,6 +16,7 @@ type Props = {
   tournament: Tournament | null;
   matches: MatchSummary[]; // the tournament's matches (for standings)
   currentUserId: string | undefined;
+  isGroupAdmin?: boolean;
   onClose: () => void;
   onChanged: () => void;
 };
@@ -41,6 +42,7 @@ export function TournamentDetailModal({
   tournament,
   matches,
   currentUserId,
+  isGroupAdmin = false,
   onClose,
   onChanged,
 }: Props) {
@@ -62,7 +64,7 @@ export function TournamentDetailModal({
 
   if (!tournament) return null;
 
-  const isOwner = !!tournament.ownerId && tournament.ownerId === currentUserId;
+  const canManage = (!!tournament.ownerId && tournament.ownerId === currentUserId) || isGroupAdmin;
   const standings = computeStandings(matches);
 
   async function saveName() {
@@ -126,7 +128,7 @@ export function TournamentDetailModal({
               ))
             )}
 
-            {isOwner && (
+            {canManage && (
               <>
                 <ThemedText style={styles.section}>Manage</ThemedText>
                 <TextInput

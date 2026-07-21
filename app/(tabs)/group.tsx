@@ -15,6 +15,7 @@ import {
   createGroup as createGroupApi,
   getAllPlayers,
   getGroupMembers,
+  setGroupAdmin,
   type GroupMember,
 } from '@/lib/api';
 
@@ -93,6 +94,17 @@ export default function GroupScreen() {
     loadMembers();
   }
 
+  async function toggleAdmin(m: GroupMember, makeAdmin: boolean) {
+    if (!activeGroupId) return;
+    setMessage(null);
+    const { error } = await setGroupAdmin(activeGroupId, m.id, makeAdmin);
+    if (error) {
+      setMessage({ type: 'error', text: error });
+      return;
+    }
+    loadMembers();
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.primary }]}>
       <AppHeader />
@@ -106,16 +118,29 @@ export default function GroupScreen() {
             {loadingMembers ? (
               <ActivityIndicator color={theme.primary} style={styles.loader} />
             ) : (
-              members.map((m) => (
-                <View key={m.id} style={styles.memberRow}>
-                  <ThemedText style={styles.memberName} numberOfLines={1}>
-                    {m.name}
-                  </ThemedText>
-                  {m.role !== 'member' && (
-                    <ThemedText style={[styles.role, { color: theme.muted }]}>{m.role}</ThemedText>
-                  )}
-                </View>
-              ))
+              members.map((m) => {
+                const canToggle = canManage && m.role !== 'owner' && m.id !== user?.id;
+                return (
+                  <View key={m.id} style={styles.memberRow}>
+                    <ThemedText style={styles.memberName} numberOfLines={1}>
+                      {m.name}
+                    </ThemedText>
+                    {m.role !== 'member' && (
+                      <ThemedText style={[styles.role, { color: theme.muted }]}>{m.role}</ThemedText>
+                    )}
+                    {canToggle && (
+                      <Pressable
+                        onPress={() => toggleAdmin(m, m.role !== 'admin')}
+                        hitSlop={8}
+                        style={[styles.adminBtn, { borderColor: theme.primary }]}>
+                        <ThemedText style={{ color: theme.primary, fontSize: 12 }}>
+                          {m.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                        </ThemedText>
+                      </Pressable>
+                    )}
+                  </View>
+                );
+              })
             )}
             {canManage && (
               <View style={styles.addWrap}>
@@ -184,10 +209,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
     paddingVertical: 10,
   },
   memberName: { flex: 1, fontSize: 16 },
   role: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  adminBtn: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   addWrap: { marginTop: 10 },
   centerText: { textAlign: 'center' },
   newCard: { marginTop: 16 },

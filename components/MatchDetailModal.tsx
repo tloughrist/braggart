@@ -11,13 +11,20 @@ import { deleteMatch, updateMatch, type MatchSummary } from '@/lib/api';
 type Props = {
   match: MatchSummary | null;
   currentUserId: string | undefined;
+  isGroupAdmin?: boolean;
   onClose: () => void;
   onChanged: () => void; // refetch + close after edit/delete
 };
 
 type Edits = Record<string, { score: string; handicap: string }>;
 
-export function MatchDetailModal({ match, currentUserId, onClose, onChanged }: Props) {
+export function MatchDetailModal({
+  match,
+  currentUserId,
+  isGroupAdmin = false,
+  onClose,
+  onChanged,
+}: Props) {
   const scheme = useColorScheme() ?? 'light';
   const theme = Colors[scheme];
 
@@ -44,7 +51,8 @@ export function MatchDetailModal({ match, currentUserId, onClose, onChanged }: P
   if (!match) return null;
 
   const isOwner = !!match.ownerId && match.ownerId === currentUserId;
-  const canEdit = isOwner && !match.teamBased;
+  const canManage = isOwner || isGroupAdmin;
+  const canEdit = canManage && !match.teamBased;
   const dateLabel = match.datePlayed ? new Date(match.datePlayed).toLocaleDateString() : 'No date';
 
   async function save() {
@@ -130,7 +138,7 @@ export function MatchDetailModal({ match, currentUserId, onClose, onChanged }: P
 
                 {error && <ThemedText style={styles.error}>{error}</ThemedText>}
 
-                {isOwner && (
+                {canManage && (
                   <View style={styles.actions}>
                     {canEdit && (
                       <Pressable

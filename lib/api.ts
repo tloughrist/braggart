@@ -17,7 +17,7 @@ import type { Session } from '@supabase/supabase-js';
 
 // ── domain types ────────────────────────────────────────────────────────────
 export type Result<T> = { data: T | null; error: string | null };
-export type Group = { id: string; name: string };
+export type Group = { id: string; name: string; role: string };
 export type PlayerRef = { id: string; name: string };
 export type GroupMember = { id: string; name: string; role: string };
 export type GameRef = { id: string; name: string; teamBased: boolean };
@@ -152,13 +152,15 @@ export const auth = {
 export async function getMyGroups(userId: string): Promise<Group[]> {
   const { data } = await supabase
     .from('player_groups')
-    .select('group:groups(id, name)')
+    .select('role, group:groups(id, name)')
     .eq('player_id', userId)
     .eq('status', 'active');
   return (data ?? [])
-    .map((r: any) => unwrapOne(r.group))
-    .filter(Boolean)
-    .map((g: any) => ({ id: g.id as string, name: g.name as string }))
+    .map((r: any) => {
+      const g = unwrapOne(r.group);
+      return g ? { id: g.id as string, name: g.name as string, role: r.role as string } : null;
+    })
+    .filter((g): g is Group => g != null)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -196,6 +198,20 @@ export async function addGroupMember(
   const { error } = await supabase.rpc('add_group_member', {
     p_group_id: groupId,
     p_player_id: playerId,
+  });
+  return { error: error?.message ?? null };
+}
+
+/** Grant or revoke admin on a member (caller must be a group admin; never affects the owner). */
+export async function setGroupAdmin(
+  groupId: string,
+  playerId: string,
+  isAdmin: boolean,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('set_group_admin', {
+    p_group_id: groupId,
+    p_player_id: playerId,
+    p_is_admin: isAdmin,
   });
   return { error: error?.message ?? null };
 }
