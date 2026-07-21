@@ -357,3 +357,7 @@ insert into public.player_trophies (player_id, trophy_id, number_awarded) values
 insert into public.game_trophies (game_id, trophy_id) values
   ('a0000000-0000-0000-0000-0000000000a1', 'e0000000-0000-0000-0000-0000000000e1'),
   ('a0000000-0000-0000-0000-0000000000a4', 'e0000000-0000-0000-0000-0000000000e1');
+
+-- a trophy tied to the tournament
+insert into public.tournament_trophies (tournament_id, trophy_id) values
+  ('f0000000-0000-0000-0000-0000000000f1', 'e0000000-0000-0000-0000-0000000000e1');
