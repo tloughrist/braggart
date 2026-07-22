@@ -17,6 +17,8 @@
     ]
   },
   "context": {
+    "domainName": "braggart.timloughrist.com",
+    "certArn": "arn:aws:acm:us-east-1:961494160524:certificate/a80fc7a7-8930-4979-ac06-53d52de8a10e",
     "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
     "@aws-cdk/aws-apigateway:authorizerChangeDeploymentLogicalId": true,
     "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,

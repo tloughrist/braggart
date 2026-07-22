@@ -1,6 +1,7 @@
 import * as path from 'path';
 
 import * as cdk from 'aws-cdk-lib';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -26,9 +27,26 @@ export class BraggartWebStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
+    // Optional custom domain. Supplied via CDK context (-c domainName=... -c
+    // certArn=...) or cdk.json. The ACM cert is managed out-of-band because
+    // timloughrist.com's DNS lives at WordPress.com, not Route 53 — so CDK
+    // can't auto-create the validation record. We import the already-issued
+    // cert by ARN and only wire it onto the distribution here. The cert MUST
+    // be in us-east-1 (CloudFront requirement).
+    const domainName = this.node.tryGetContext('domainName') as string | undefined;
+    const certArn = this.node.tryGetContext('certArn') as string | undefined;
+    const customDomain =
+      domainName && certArn
+        ? {
+            domainNames: [domainName],
+            certificate: acm.Certificate.fromCertificateArn(this, 'SiteCert', certArn),
+          }
+        : {};
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: 'Braggart web app',
       defaultRootObject: 'index.html',
+      ...customDomain,
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -65,6 +83,16 @@ export class BraggartWebStack extends cdk.Stack {
       value: `https://${distribution.distributionDomainName}`,
       description: 'CloudFront URL for the Braggart web app',
     });
+    if (domainName) {
+      new cdk.CfnOutput(this, 'CustomDomainUrl', {
+        value: `https://${domainName}`,
+        description: 'Custom-domain URL (add a CNAME to the CloudFront domain)',
+      });
+      new cdk.CfnOutput(this, 'CnameTarget', {
+        value: distribution.distributionDomainName,
+        description: `Point ${domainName} (CNAME) at this CloudFront domain`,
+      });
+    }
     new cdk.CfnOutput(this, 'BucketName', { value: bucket.bucketName });
   }
 }
