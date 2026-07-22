@@ -11,12 +11,44 @@ It is built as a single Expo / React Native codebase targeting iOS, Android, and
 web, on a Postgres backend with database-enforced authorization, SQL-computed
 statistics, and a rating-plus-graph engine for the rankings.
 
-> Status: personal portfolio project. The app — authentication, groups with
-> owner/admin/member roles, match recording and history, tournaments,
-> group-scoped statistics, in-app rankings, and profiles with avatar uploads —
-> is functional and covered by database tests in CI. Web hosting is defined as
-> infrastructure-as-code on AWS and is pending account activation. See
-> [Project status](#project-status) and the [development roadmap](docs/roadmap.html).
+> Status: personal portfolio project, deployed and live. The app —
+> authentication, groups with owner/admin/member roles, match recording and
+> history, tournaments, group-scoped statistics, in-app rankings, and profiles
+> with avatar uploads — is functional and covered by database tests in CI. It is
+> deployed on AWS (CloudFront and S3, defined as infrastructure-as-code) behind a
+> custom domain with a managed Supabase backend. See [Live demo](#live-demo),
+> [Project status](#project-status), and the
+> [development roadmap](docs/roadmap.html).
+
+## Live demo
+
+**➡️ [braggart.timloughrist.com](https://braggart.timloughrist.com)**
+
+The app is live and runs in any modern browser (desktop or mobile), backed by a
+hosted Supabase database seeded with a small demo dataset. Sign in with the demo
+account:
+
+| Email | Password |
+| --- | --- |
+| `tim@braggart.test` | `braggart` |
+
+A few things worth trying once you are in:
+
+- **Rankings** — open **Stats**, switch a game's leaderboard between raw stats,
+  Elo, and Glicko-2, then use **compare players** to pit two players who never
+  actually met (try **Tim vs. James**) and see the uncertainty-aware win
+  probability and the connection path between them.
+- **History** — browse past matches, filter by game, date, or players, and open
+  any match for full per-player results.
+- **Tournaments** — see a set of matches grouped under a tournament with live
+  standings.
+
+Several other seeded accounts exist too (for example `katie@braggart.test` and
+`james@braggart.test`), all with the password `braggart`, so you can sign in as
+different players and see the app from each one's perspective. The demo is a
+shared sandbox, so treat the data as disposable. (Registering a brand-new account
+from the sign-in screen also works, but requires email confirmation — the seeded
+accounts are the quickest way in.)
 
 ## Screenshots
 
@@ -65,8 +97,9 @@ Sign-in (light theme):
 - **Data access**: one module, `lib/api.ts`, is the only code that talks to the
   backend client; every screen calls typed domain functions instead. This keeps
   the backend behind a single, replaceable boundary.
-- **Infrastructure**: AWS CDK (TypeScript) defines the web hosting stack
-  (private S3 bucket behind a CloudFront distribution).
+- **Infrastructure**: AWS CDK (TypeScript) defines the web hosting stack — a
+  private S3 bucket behind a CloudFront distribution, with an ACM TLS certificate
+  and a custom domain — deployed and live.
 
 ## The ranking system
 
@@ -151,8 +184,12 @@ and staying in one datastore avoids the operational cost of syncing two.
   upload, searchable pickers, and a mobile-first responsive UI, all behind
   row-level security and the `lib/api.ts` data-access layer, with pgTAP tests in
   CI.
-- **In progress**: AWS web deployment. The CDK stack synthesizes cleanly and is
-  awaiting AWS account activation.
+- **Live on AWS**: deployed as infrastructure-as-code (AWS CDK) — a private S3
+  bucket behind a CloudFront distribution with an ACM certificate and a custom
+  domain, [braggart.timloughrist.com](https://braggart.timloughrist.com), on a
+  hosted Supabase backend.
+- **In progress**: operational hardening of the live deployment — observability,
+  backups, and error monitoring.
 - **Planned**: a recognition layer (trophy and award UI over the already-modeled
   tables, with default art assets), the social graph (friendships, persistent
   teams, session notes, mentions), structured tournaments (brackets, seeding,
