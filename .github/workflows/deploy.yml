@@ -1,0 +1,89 @@
+name: Deploy
+
+# Deploys the web app to AWS (S3 + CloudFront). Deliberately decoupled from
+# commits: it runs on demand (the "Run workflow" button) and once nightly. The
+# nightly run skips itself when nothing has changed since the last deploy, so
+# quiet days cost nothing.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * *' # 07:00 UTC nightly (~2-3am US Eastern)
+
+# OIDC token to assume the AWS role; write access to move the `deployed` tag.
+permissions:
+  id-token: write
+  contents: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  # Scheduled runs are a no-op when HEAD already matches the last deploy.
+  # Manual runs always proceed.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        run: |
+          HEAD_SHA="$(git rev-parse HEAD)"
+          LAST="$(git rev-parse -q --verify refs/tags/deployed || echo none)"
+          echo "HEAD=$HEAD_SHA  last-deployed=$LAST  event=${{ github.event_name }}"
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$HEAD_SHA" = "$LAST" ]; then
+            echo "Nothing new since last deploy — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      # Expo reads EXPO_PUBLIC_* from .env (not shell env), so write it from
+      # repo variables. The anon key is a public, RLS-gated key.
+      - name: Write .env for the web build
+        run: |
+          {
+            echo "EXPO_PUBLIC_SUPABASE_URL=${{ vars.EXPO_PUBLIC_SUPABASE_URL }}"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}"
+          } > .env
+
+      - name: Export web build
+        run: npx expo export --platform web --clear
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy web stack
+        working-directory: infra
+        run: |
+          npm ci
+          npx cdk deploy BraggartWebStack --require-approval never
+
+      # Record what we just shipped so the nightly guard can skip no-op runs.
+      - name: Mark deployed commit
+        run: |
+          git tag -f deployed
+          git push -f origin deployed
