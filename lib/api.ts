@@ -226,6 +226,41 @@ export async function getGames(): Promise<GameRef[]> {
   }));
 }
 
+export type NewGame = {
+  name: string;
+  mostPointsWins: boolean;
+  teamBased: boolean;
+  cooperative: boolean;
+  pointsToWin?: number | null;
+  bggId?: number | null;
+};
+
+/**
+ * Create a game owned by the current user. RLS (games_insert) requires
+ * owner_id = auth.uid(), so this always produces a personal game, never a
+ * universal-library one. Returns the new game as a GameRef for the picker.
+ */
+export async function createGame(input: NewGame, ownerId: string): Promise<Result<GameRef>> {
+  const { data, error } = await supabase
+    .from('games')
+    .insert({
+      owner_id: ownerId,
+      name: input.name,
+      most_points_wins: input.mostPointsWins,
+      team_based: input.teamBased,
+      cooperative: input.cooperative,
+      points_to_win: input.pointsToWin ?? null,
+      bgg_id: input.bggId ?? null,
+    })
+    .select('id, name, team_based')
+    .single();
+  if (error) return { data: null, error: error.message };
+  return {
+    data: { id: data.id as string, name: data.name as string, teamBased: !!data.team_based },
+    error: null,
+  };
+}
+
 // ── stats ───────────────────────────────────────────────────────────────────
 export async function getGroupStats(groupId: string): Promise<Result<StatsRow[]>> {
   const { data, error } = await supabase

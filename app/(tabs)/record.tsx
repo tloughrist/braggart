@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { AppHeader } from '@/components/AppHeader';
 import { Card } from '@/components/Card';
@@ -14,6 +14,7 @@ import { useAuth } from '@/context/auth';
 import { useGroup } from '@/context/group';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import {
+  createGame,
   createMatch,
   createTeamMatch,
   createTournament,
@@ -56,6 +57,15 @@ export default function RecordScreen() {
   const [newGroupId, setNewGroupId] = useState<string | null>(activeGroupId);
   const [creating, setCreating] = useState(false);
   const [tourMsg, setTourMsg] = useState<Msg | null>(null);
+
+  // create-game card
+  const [gameName, setGameName] = useState('');
+  const [gMostPointsWins, setGMostPointsWins] = useState(true);
+  const [gTeamBased, setGTeamBased] = useState(false);
+  const [gCooperative, setGCooperative] = useState(false);
+  const [gPointsToWin, setGPointsToWin] = useState('');
+  const [creatingGame, setCreatingGame] = useState(false);
+  const [gameMsg, setGameMsg] = useState<Msg | null>(null);
 
   const activeTournaments = useMemo(
     () => tournaments.filter((t) => t.status === 'active'),
@@ -126,6 +136,37 @@ export default function RecordScreen() {
     setEntries([]);
     setTeams([]);
     setMessage(null);
+  }
+
+  async function createNewGame() {
+    const name = gameName.trim();
+    if (!name || !user || !optionalNumeric(gPointsToWin)) return;
+    setCreatingGame(true);
+    setGameMsg(null);
+    const { data, error } = await createGame(
+      {
+        name,
+        mostPointsWins: gMostPointsWins,
+        teamBased: gTeamBased,
+        cooperative: gCooperative,
+        pointsToWin: gPointsToWin.trim() === '' ? null : Number(gPointsToWin),
+      },
+      user.id,
+    );
+    setCreatingGame(false);
+    if (error || !data) {
+      setGameMsg({ type: 'error', text: error ?? 'Could not create the game.' });
+      return;
+    }
+    // Add to the picker and select it so the user can record with it right away.
+    setGames((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    selectGame(data.id);
+    setGameName('');
+    setGPointsToWin('');
+    setGMostPointsWins(true);
+    setGTeamBased(false);
+    setGCooperative(false);
+    setGameMsg({ type: 'success', text: `“${data.name}” added and selected.` });
   }
 
   // ── individual mode ──
@@ -385,6 +426,92 @@ export default function RecordScreen() {
           )}
         </Card>
 
+        <Card style={styles.newCard}>
+          <ThemedText type="subtitle" style={styles.title}>
+            Create a game
+          </ThemedText>
+          <ThemedText style={styles.hint}>
+            Add a game to your library, then pick it above to record a match.
+          </ThemedText>
+
+          <ThemedText style={styles.label}>Name</ThemedText>
+          <TextInput
+            style={[styles.tourNameInput, { color: theme.text, borderColor: theme.border }]}
+            placeholder="e.g. Wingspan"
+            placeholderTextColor={theme.muted}
+            value={gameName}
+            onChangeText={setGameName}
+          />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabel}>
+              <ThemedText style={styles.switchTitle}>Highest score wins</ThemedText>
+              <ThemedText style={styles.switchHint}>
+                {gMostPointsWins ? 'Most points takes the win.' : 'Lowest score takes the win.'}
+              </ThemedText>
+            </View>
+            <Switch
+              value={gMostPointsWins}
+              onValueChange={setGMostPointsWins}
+              trackColor={{ true: theme.primary }}
+            />
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabel}>
+              <ThemedText style={styles.switchTitle}>Team-based</ThemedText>
+              <ThemedText style={styles.switchHint}>
+                Played by teams rather than individuals.
+              </ThemedText>
+            </View>
+            <Switch value={gTeamBased} onValueChange={setGTeamBased} trackColor={{ true: theme.primary }} />
+          </View>
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabel}>
+              <ThemedText style={styles.switchTitle}>Cooperative</ThemedText>
+              <ThemedText style={styles.switchHint}>Players work together against the game.</ThemedText>
+            </View>
+            <Switch
+              value={gCooperative}
+              onValueChange={setGCooperative}
+              trackColor={{ true: theme.primary }}
+            />
+          </View>
+
+          <ThemedText style={styles.label}>Points to win (optional)</ThemedText>
+          <TextInput
+            style={[styles.tourNameInput, { color: theme.text, borderColor: theme.border }]}
+            placeholder="e.g. 10"
+            placeholderTextColor={theme.muted}
+            keyboardType="number-pad"
+            value={gPointsToWin}
+            onChangeText={setGPointsToWin}
+          />
+
+          {gameMsg && (
+            <ThemedText
+              style={[styles.message, { color: gameMsg.type === 'error' ? '#e5484d' : theme.primary }]}>
+              {gameMsg.text}
+            </ThemedText>
+          )}
+
+          <Pressable
+            onPress={createNewGame}
+            disabled={!gameName.trim() || !optionalNumeric(gPointsToWin) || creatingGame}
+            style={[
+              styles.save,
+              { backgroundColor: theme.primary },
+              (!gameName.trim() || !optionalNumeric(gPointsToWin) || creatingGame) && styles.saveDisabled,
+            ]}>
+            {creatingGame ? (
+              <ActivityIndicator color={theme.headerText} />
+            ) : (
+              <ThemedText style={[styles.saveText, { color: theme.headerText }]}>Create game</ThemedText>
+            )}
+          </Pressable>
+        </Card>
+
         {activeGroupId && (
           <Card style={styles.newCard}>
             <ThemedText type="subtitle" style={styles.title}>
@@ -462,6 +589,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
   },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    gap: 12,
+  },
+  switchLabel: { flex: 1 },
+  switchTitle: { fontSize: 15, fontWeight: '600' },
+  switchHint: { fontSize: 12, opacity: 0.6, marginTop: 2 },
 
   entryHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
   colLabel: { fontSize: 12, opacity: 0.6 },
