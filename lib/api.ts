@@ -126,7 +126,15 @@ export const auth = {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: displayName ? { display_name: displayName } : undefined },
+      options: {
+        data: displayName ? { display_name: displayName } : undefined,
+        // Send the confirmation link back to the app's own origin (localhost in
+        // dev, the live domain in prod). Must be in Supabase's redirect
+        // allowlist. On native `window` is undefined, so it falls back to the
+        // project Site URL.
+        emailRedirectTo:
+          typeof window !== 'undefined' ? window.location.origin : undefined,
+      },
     });
     return { error: error?.message ?? null };
   },

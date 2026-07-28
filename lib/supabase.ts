@@ -20,7 +20,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: Platform.OS === 'web' ? undefined : AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // no URL-based OAuth callback in a native app
+    // Web: consume the session from the email-confirmation / OAuth redirect URL.
+    // Native has no URL callback wired yet (would need a braggart:// deep link).
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
 
