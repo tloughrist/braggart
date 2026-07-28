@@ -25,12 +25,7 @@ statistics, and a rating-plus-graph engine for the rankings.
 **➡️ [braggart.timloughrist.com](https://braggart.timloughrist.com)**
 
 The app is live and runs in any modern browser (desktop or mobile), backed by a
-hosted Supabase database seeded with a small demo dataset. Sign in with the demo
-account:
-
-| Email | Password |
-| --- | --- |
-| `tim@braggart.test` | `braggart` |
+hosted Supabase database seeded with a small demo dataset. Sign-in is currently under construction.
 
 A few things worth trying once you are in:
 
