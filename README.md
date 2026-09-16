@@ -20,31 +20,6 @@ statistics, and a rating-plus-graph engine for the rankings.
 > [Project status](#project-status) and the
 > [development roadmap](docs/roadmap.html).
 
-## Live demo
-
-**➡️ [braggart.timloughrist.com](https://braggart.timloughrist.com)**
-
-The app is live and runs in any modern browser (desktop or mobile), backed by a
-hosted Supabase database seeded with a small demo dataset. Sign-in is currently under construction.
-
-A few things worth trying once you are in:
-
-- **Rankings** — open **Stats**, switch a game's leaderboard between raw stats,
-  Elo, and Glicko-2, then use **compare players** to pit two players who never
-  actually met (try **Tim vs. James**) and see the uncertainty-aware win
-  probability and the connection path between them.
-- **History** — browse past matches, filter by game, date, or players, and open
-  any match for full per-player results.
-- **Tournaments** — see a set of matches grouped under a tournament with live
-  standings.
-
-Several other seeded accounts exist too (for example `katie@braggart.test` and
-`james@braggart.test`), all with the password `braggart`, so you can sign in as
-different players and see the app from each one's perspective. The demo is a
-shared sandbox, so treat the data as disposable. (Registering a brand-new account
-from the sign-in screen also works, but requires email confirmation — the seeded
-accounts are the quickest way in.)
-
 ## Screenshots
 
 Sign-in (light theme):
