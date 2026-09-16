@@ -16,8 +16,8 @@ statistics, and a rating-plus-graph engine for the rankings.
 > history, tournaments, group-scoped statistics, in-app rankings, and profiles
 > with avatar uploads — is functional and covered by database tests in CI. It is
 > deployed on AWS (CloudFront and S3, defined as infrastructure-as-code) behind a
-> custom domain with a managed Supabase backend. See [Live demo](#live-demo),
-> [Project status](#project-status), and the
+> custom domain with a managed Supabase backend. See
+> [Project status](#project-status) and the
 > [development roadmap](docs/roadmap.html).
 
 ## Live demo
